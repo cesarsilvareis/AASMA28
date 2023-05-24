@@ -1,4 +1,4 @@
-from gym import Wrapper
+from gym import Wrapper, Env
 
 
 class SingleAgentWrapper(Wrapper):
@@ -7,7 +7,7 @@ class SingleAgentWrapper(Wrapper):
     A Wrapper for Multi-Agent environments which only contain a single agent.
     """
 
-    def __init__(self, env, agent_id):
+    def __init__(self, env: Env, agent_id: int):
         super(SingleAgentWrapper, self).__init__(env)
         assert env.n_agents == 1, "Single Agent Wrapper for Multi-Agent Environments requires only one agent."
         self.agent_id = agent_id

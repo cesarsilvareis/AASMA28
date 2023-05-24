@@ -8,6 +8,7 @@ from aasma import Agent
 from aasma.utils import compare_results
 from aasma.wrappers import SingleAgentWrapper
 from ambulance_emergency_response import AmbulanceERS
+from snake_game import SnakeEnv
 
 
 def run_single_agent(environment: Env, agent: Agent, n_episodes: int) -> np.ndarray:
@@ -30,7 +31,7 @@ def run_single_agent(environment: Env, agent: Agent, n_episodes: int) -> np.ndar
             
             print(f"Agent {agent.name} - Timestep {steps}")
             print(f"\tObservation: {observation}")
-            print(f"\tAction: {environment.get_action_meanings()[agent_action]}")
+            # print(f"\tAction: {environment.get_action_meanings()[agent_action]}")
             print(f"\tInfo: {info}")
             print(f"\tReward: {reward}\n")
 
@@ -70,11 +71,8 @@ if __name__ == '__main__':
     # environment = SingleAgentWrapper(environment, agent_id=0)
 
     environment.reset()
-    environment.render()
 
-    while True:
-        environment.render()
-    environment.close
+    while(True): pass
 
     # 2 - Setup agent
     agent = RandomAgent(environment.action_space.n)

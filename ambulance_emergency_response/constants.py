@@ -1,11 +1,12 @@
 from PIL import ImageColor
 
-GRID_COLOR = ImageColor.getcolor('white', mode='RGB')
+STREET_COLOR = ImageColor.getcolor('white', mode='RGB')
+GRID_COLOR = ImageColor.getcolor('black', mode='RGB')
 
-AGENT_COLOR = ImageColor.getcolor('blue', mode='RGB')
+AGENT_COLOR = ImageColor.getcolor('orange', mode='RGB')
 AMBULANCE_COLOR = ImageColor.getcolor('black', mode='RGB')
 
-CELL_SIZE = 20
+BLOCK_SIZE = 20  # square
 
 ACTION_MEANING = {
     0: "ASSIST",

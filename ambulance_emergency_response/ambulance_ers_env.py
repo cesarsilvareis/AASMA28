@@ -1,30 +1,33 @@
-import copy
 import logging
 import random
-from typing import Any, Dict, Tuple
-
 import numpy as np
+import pygame as pg
 
 logger = logging.getLogger(__name__)
 
 import gym
 from ambulance_emergency_response.constants import *
+from ambulance_emergency_response.draw import *
 from gym import spaces
-from gym.utils import seeding
 
 from ma_gym.envs.utils.action_space import MultiAgentActionSpace
-from ma_gym.envs.utils.draw import *
 from ma_gym.envs.utils.observation_space import MultiAgentObservationSpace
 
 
 class AmbulanceERS(gym.Env):
 
-    def __init__(self, grid_shape=(50, 50), request_timer=100):
+    def __init__(self, grid_shape=(50, 50), n_agents=1, request_timer=100):
         
-        self.grid_shape = grid_shape
-        self.action_space = spaces.Discrete(len(ACTION_MEANING))
+        # Infrastruture
+        self.n_agents = n_agents
+        self.action_space = MultiAgentActionSpace([spaces.Discrete(len(ACTION_MEANING)) for _ in range(n_agents)])
         self.observation_space = spaces.Box(low=0, high=40, shape=(5,), dtype=np.float32)
-        self.viewer = None
+
+        # Display info
+        self.display = None
+        self.grid_shape = np.array(grid_shape)
+
+        # Requests
         self.request_timer = request_timer
         self.request_alive = None
         
@@ -61,31 +64,24 @@ class AmbulanceERS(gym.Env):
         return super().step(action)
     
     def reset(self):
-        self.request_timer = 0
-    
+        self.request_timer = 0  # ?
+
+        initialize_render()
+        self.display = pg.display.set_mode(self.grid_shape*BLOCK_SIZE)
+
+        self.render()
+
+
     def render(self, render_mode="human"):
-        img = draw_grid(self.grid_shape[0], self.grid_shape[1], cell_size=CELL_SIZE, fill=GRID_COLOR)
         
-        # agencies
-        draw_circle(image=img, pos=(1, 1), cell_size=CELL_SIZE, fill=AGENT_COLOR)
+        self.display.fill(STREET_COLOR)
+        draw_grid(self.display, GRID_COLOR, self.grid_shape)
+
+        draw_agent(self.display, AGENT_COLOR, np.array([25, 25]), 18, "1")
+
+        pg.display.update()
         
-        draw_circle(image=img, pos=(5, 5), cell_size=CELL_SIZE, fill=AGENT_COLOR)
-
-        # request
-        draw_cell_outline(image=img, pos=(3, 3), cell_size=CELL_SIZE, fill=REQUEST_PRIORITY[0])
-
-        img = np.asarray(img)
-        if render_mode == 'rgb_array':
-            return img
-        elif render_mode == 'human':
-            from gym.envs.classic_control import rendering
-            if self.viewer is None:
-                self.viewer = rendering.SimpleImageViewer()
-            self.viewer.imshow(img)
-            return self.viewer.isopen
 
     def close(self):
-        if self.viewer is not None:
-            self.viewer.close()
-            self.viwer = None
+        pg.quit()
 
