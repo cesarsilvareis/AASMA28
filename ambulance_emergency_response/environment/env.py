@@ -1,3 +1,7 @@
+###########################################################################
+#           Ambulance Emergency Response Environment Definition           #
+###########################################################################
+
 import logging
 import random
 import numpy as np
@@ -6,8 +10,8 @@ import pygame as pg
 logger = logging.getLogger(__name__)
 
 import gym
-from ambulance_emergency_response.constants import *
-from ambulance_emergency_response.draw import *
+from ambulance_emergency_response.settings import *
+from ambulance_emergency_response.environment.rendering import *
 from gym import spaces
 
 from ma_gym.envs.utils.action_space import MultiAgentActionSpace

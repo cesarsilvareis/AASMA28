@@ -1,7 +1,11 @@
+###########################################################################
+#             Ambulance Emergency Response Environment Render             #
+###########################################################################
+
 import pygame, numpy
 from PIL import ImageColor
 
-from ambulance_emergency_response.constants import BLOCK_SIZE
+from ambulance_emergency_response.settings import BLOCK_SIZE
 
 
 FONT_NAME = 'Arial_bold'

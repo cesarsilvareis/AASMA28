@@ -7,8 +7,7 @@ from gym import Env
 from aasma import Agent
 from aasma.utils import compare_results
 from aasma.wrappers import SingleAgentWrapper
-from ambulance_emergency_response import AmbulanceERS
-from snake_game import SnakeEnv
+from ambulance_emergency_response.environment import AmbulanceERS
 
 
 def run_single_agent(environment: Env, agent: Agent, n_episodes: int) -> np.ndarray:
