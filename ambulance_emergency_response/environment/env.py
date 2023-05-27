@@ -20,7 +20,7 @@ from ma_gym.envs.utils.observation_space import MultiAgentObservationSpace
 
 class AmbulanceERS(gym.Env):
 
-    def __init__(self, grid_shape=(50, 50), n_agents=1, request_timer=100):
+    def __init__(self, grid_shape=(50, 50), n_agents=1, steps=100):
         
         # Infrastruture
         self.n_agents = n_agents
@@ -31,9 +31,37 @@ class AmbulanceERS(gym.Env):
         self.display = None
         self.grid_shape = np.array(grid_shape)
 
+        # Agents positions
+        self.agent_positions = []
+        for _ in range(n_agents):
+            while True:
+                (x, y) = (random.randint(0, grid_shape[0]), random.randint(0, grid_shape[1]))
+                if (x, y) not in self.agent_positions:
+                    self.agent_positions.append((x, y))
+                    break
+
         # Requests
-        self.request_timer = request_timer
+        self.steps = steps
+        self.request_timer = 0
+        self.done = False
         self.request_alive = None
+
+        self.request_pos = []
+        for step in range(self.steps):
+            random_num = random.randint(1, self.steps)
+
+            if random_num < REQUEST_CHANCE:
+                x = random.randint(0, self.grid_shape[0])
+                y = random.randint(0, self.grid_shape[1])
+
+                priority = random.choices(list(REQUEST_PRIORITY.keys()), REQUEST_WEIGHTS)[0]
+            
+                self.request_pos.append((step, x, y, priority))
+
+        self.live_requests = []
+
+        # create a copy
+        self.pending_requests = [x for x in self.request_pos]
         
     def simplified_features(self):
 
@@ -48,10 +76,10 @@ class AmbulanceERS(gym.Env):
             agent_pos.append((col, row))
 
         request_pos = []
-        for step in range(self.request_timer):
-            random_num = random.randint(1, self.request_timer)
+        for step in range(self.steps):
+            random_num = random.randint(1, self.steps)
 
-            if random_num > (step * 2) or random_num < (step ** 2):
+            if random_num < REQUEST_CHANCE:
                 x = random.randint(0, self.grid_shape[0])
                 y = random.randint(0, self.grid_shape[1])
 
@@ -63,9 +91,24 @@ class AmbulanceERS(gym.Env):
 
         return features
 
-    def step(self, action):
+    def step(self, actions):
+        if self.request_timer > self.steps:
+            self.done = True
+            return
+        
+        if len(self.pending_requests) > 0 and self.pending_requests[0][0] == self.request_timer:
+            self.live_requests.append(self.pending_requests[0])
+            self.pending_requests = self.pending_requests[1:]
+
+        if self.display:
+            self.display.fill((0, 0, 0)) # clear
+            self.render()
+
+        print("Step " + str(self.request_timer))
+
         self.request_timer += 1
-        return super().step(action)
+
+        return
     
     def reset(self):
         self.request_timer = 0  # ?
@@ -81,7 +124,11 @@ class AmbulanceERS(gym.Env):
         self.display.fill(STREET_COLOR)
         draw_grid(self.display, GRID_COLOR, self.grid_shape)
 
-        draw_agent(self.display, AGENT_COLOR, np.array([25, 25]), 18, "1")
+        for position in self.agent_positions:
+            draw_agent(self.display, AGENT_COLOR, np.array(position), BLOCK_SIZE/2, "1")
+
+        for request in self.live_requests:
+            draw_agent(self.display, REQUEST_COLORS[request[3]], np.array([request[1], request[2]]), BLOCK_SIZE/2, "2")
 
         pg.display.update()
         

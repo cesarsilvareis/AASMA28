@@ -19,11 +19,20 @@ REQUEST_PRIORITY = {
     2: "RED"
 }
 
+REQUEST_COLORS = {
+    0: ImageColor.getcolor('green', mode='RGB'),
+    1: ImageColor.getcolor('yellow', mode='RGB'),
+    2: ImageColor.getcolor('red', mode='RGB')
+}
+
 REQUEST_WEIGHTS = [
     0.6,
     0.3,
     0.1
 ]
+
+# in each interval there is a 80% chance of a request happening
+REQUEST_CHANCE = 80
 
 PRE_IDS = {
     'agent': 'A',

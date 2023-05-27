@@ -47,10 +47,10 @@ def run_single_agent(environment: Env, agent: Agent, n_episodes: int) -> np.ndar
     return results
 
 
-class RandomAgent(Agent):
+class GreedyAgent(Agent):
 
     def __init__(self, n_actions: int):
-        super(RandomAgent, self).__init__("Random Agent")
+        super(GreedyAgent, self).__init__("Greedy Agent")
         self.n_actions = n_actions
 
     def action(self) -> int:
@@ -65,13 +65,21 @@ if __name__ == '__main__':
 
     # 1 - Setup environment
     environment = AmbulanceERS(
-
+        grid_shape=(50, 50),
+        n_agents=4,
+        steps=100
     )
     # environment = SingleAgentWrapper(environment, agent_id=0)
 
     environment.reset()
 
-    while(True): pass
+    while(not environment.done): 
+        environment.step(0)
+        environment.render()
+        time.sleep(0.5)
+
+    # falta implementar o resto em baixo
+    exit()
 
     # 2 - Setup agent
     agent = RandomAgent(environment.action_space.n)
