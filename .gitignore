@@ -21,6 +21,8 @@
 __pycache__/
 *.py[cod]
 *$py.class
+# Venvs
+*venv/
 
 # C extensions
 *.so

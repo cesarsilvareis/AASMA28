@@ -65,15 +65,16 @@ if __name__ == '__main__':
 
     # 1 - Setup environment
     environment = AmbulanceERS(
-        grid_shape=(50, 50),
-        n_agents=4,
-        steps=100
+        city_size=(500, 500),
+        num_agents=4,
+        agent_coords=[(220, 40), (40, 220), (220, 440), (440, 220)],
+        agent_num_ambulances=[2, 2, 2, 2]        
     )
     # environment = SingleAgentWrapper(environment, agent_id=0)
 
     environment.reset()
 
-    while(not environment.done): 
+    while(True):  # stop execution by closing window or Ctr^ C
         environment.step(0)
         environment.render()
         time.sleep(0.5)

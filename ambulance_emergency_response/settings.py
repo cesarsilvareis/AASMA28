@@ -6,7 +6,7 @@ GRID_COLOR = ImageColor.getcolor('black', mode='RGB')
 AGENT_COLOR = ImageColor.getcolor('orange', mode='RGB')
 AMBULANCE_COLOR = ImageColor.getcolor('black', mode='RGB')
 
-BLOCK_SIZE = 20  # square
+BLOCK_SIZE = 35  # square
 
 ACTION_MEANING = {
     0: "ASSIST",
@@ -36,8 +36,8 @@ REQUEST_CHANCE = 80
 
 PRE_IDS = {
     'agent': 'A',
-    'ambulances': 'a',
-    'requests':'r',
+    'ambulance': 'a',
+    'request':'r',
     'wall': 'W',
     'empty': '0'
 }
