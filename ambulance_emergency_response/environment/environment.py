@@ -24,7 +24,19 @@ class Agency(Entity):
     def __init__(self, name: str, position: tuple[int, int], num_ambulances: int):
         super().__init__(name, position)
 
-        self.num_ambulances = num_ambulances
+        self.available_ambulances = num_ambulances
+        self.ambulances = [Ambulance(f"{PRE_IDS['ambulance']}#{name}_{i}", position, self) for i in range(num_ambulances)]
+
+        self.num_assistances_made = 0
+
+class Ambulance(Entity):
+
+    def __init__(self, name: str, position: tuple[int, int], owner: Agency):
+        super().__init__(name, position)
+        
+        self.OWNER = owner  # should not change
+        self.path = None
+        self.objective = None
 
 class Request(Entity):
 
@@ -69,7 +81,7 @@ class AmbulanceERS(Env):
         self.agencies = []
         for i in range(num_agents):
             agency_position = tuple(np.minimum(np.array(agent_coords[i]) // BLOCK_SIZE, np.array(self.grid_city.shape) - 1))
-            agent_i = Agency("A_" + str(i), agency_position, agent_num_ambulances[i])
+            agent_i = Agency(f"{PRE_IDS['agent']}_" + str(i), agency_position, agent_num_ambulances[i])
             self.agencies.append(agent_i)
             self.grid_city[agent_i.position] = PRE_IDS["agent"]
         self.__log_city()
@@ -96,7 +108,7 @@ class AmbulanceERS(Env):
                 priority = random.choices(list(REQUEST_PRIORITY.keys()), REQUEST_WEIGHTS)[0]
             
                 self.request_selected.append(
-                    (step, Request("r_" + str(step), request_position, priority))
+                    (step, Request(f"{PRE_IDS['request']}_{step}", request_position, priority))
                 )
 
         self.live_requests = []

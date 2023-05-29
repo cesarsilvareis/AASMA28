@@ -1,10 +1,7 @@
 from PIL import ImageColor
 
-# STREET_COLOR = ImageColor.getcolor('white', mode='RGB')
-# GRID_COLOR = ImageColor.getcolor('black', mode='RGB')
-
-# AGENT_COLOR = ImageColor.getcolor('orange', mode='RGB')
-# AMBULANCE_COLOR = ImageColor.getcolor('black', mode='RGB')
+STREET_COLOR = ImageColor.getcolor('#2C4251', mode='RGB')
+GRID_COLOR = ImageColor.getcolor("#C1C1C1", mode='RGB')
 
 BLOCK_SIZE = 35  # square
 
@@ -17,12 +14,6 @@ REQUEST_PRIORITY = {
     0: "GREEN",
     1: "YELLOW",
     2: "RED"
-}
-
-REQUEST_COLORS = {
-    0: ImageColor.getcolor('green', mode='RGB'),
-    1: ImageColor.getcolor('yellow', mode='RGB'),
-    2: ImageColor.getcolor('red', mode='RGB')
 }
 
 REQUEST_WEIGHTS = [

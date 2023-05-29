@@ -9,6 +9,7 @@ from pyglet.gl import *
 import gym;
 
 from .environment import AmbulanceERS
+from ambulance_emergency_response.settings import GRID_COLOR, STREET_COLOR
 
 class CityRender(object):
 
@@ -57,7 +58,11 @@ class CityRender(object):
     # Dynamic render for the same environment
 
     def __reset_render(self):
-        glClearColor(*(255, 255, 255), 0)
+        glClearColor(
+            STREET_COLOR[0] / 250.0,
+            STREET_COLOR[1] / 250.0,
+            STREET_COLOR[2] / 250.0,
+            1.0)
         self.display_window.clear()
         self.display_window.switch_to()
         self.display_window.dispatch_events()
@@ -71,12 +76,12 @@ class CityRender(object):
 
             # column lines
             line_references.append(pyglet.shapes.Line(
-                offset, 0, offset, self.city_size[0], width=2, color=(0, 230, 0), batch=batch
+                offset, 0, offset, self.city_size[0], width=2, color=GRID_COLOR, batch=batch
             ))
 
             # row lines
             line_references.append(pyglet.shapes.Line(
-                0, offset, self.city_size[1], offset, width=2, color=(0, 230, 0), batch=batch
+                0, offset, self.city_size[1], offset, width=2, color=GRID_COLOR, batch=batch
             ))
 
         batch.draw()
