@@ -1,5 +1,6 @@
 import argparse
 import time
+import logging
 
 import numpy as np
 from gym import Env
@@ -9,6 +10,8 @@ from aasma.utils import compare_results
 from aasma.wrappers import SingleAgentWrapper
 from ambulance_emergency_response.environment import AmbulanceERS
 
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s %(name)s.%(funcName)s +%(lineno)s: %(levelname)-8s: %(message)s',)
 
 def run_single_agent(environment: Env, agent: Agent, n_episodes: int) -> np.ndarray:
 

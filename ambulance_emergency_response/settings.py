@@ -1,10 +1,10 @@
 from PIL import ImageColor
 
-STREET_COLOR = ImageColor.getcolor('white', mode='RGB')
-GRID_COLOR = ImageColor.getcolor('black', mode='RGB')
+# STREET_COLOR = ImageColor.getcolor('white', mode='RGB')
+# GRID_COLOR = ImageColor.getcolor('black', mode='RGB')
 
-AGENT_COLOR = ImageColor.getcolor('orange', mode='RGB')
-AMBULANCE_COLOR = ImageColor.getcolor('black', mode='RGB')
+# AGENT_COLOR = ImageColor.getcolor('orange', mode='RGB')
+# AMBULANCE_COLOR = ImageColor.getcolor('black', mode='RGB')
 
 BLOCK_SIZE = 35  # square
 

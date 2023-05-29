@@ -58,34 +58,41 @@ class AmbulanceERS(Env):
         self.seed()
 
         self.logger.info("Initializing environment...")
+        
+        self.current_step = 0
 
         self.grid_city = np.full(np.array(city_size) // BLOCK_SIZE, PRE_IDS["empty"])
-        self.logger.info("City: %s", str(self.grid_city))
+        self.grid_city[(0, 1)] = "A"
+        print(self.grid_city)
+        self.__log_city()
 
         self.agencies = []
         for i in range(num_agents):
-            agency_position = np.minimum(np.array(agent_coords[i]) // BLOCK_SIZE, np.array(self.grid_city.shape) - 1)
+            agency_position = tuple(np.minimum(np.array(agent_coords[i]) // BLOCK_SIZE, np.array(self.grid_city.shape) - 1))
             agent_i = Agency("A_" + str(i), agency_position, agent_num_ambulances[i])
             self.agencies.append(agent_i)
             self.grid_city[agent_i.position] = PRE_IDS["agent"]
+        self.__log_city()
 
         self.penalty = penalty
 
         self.request_max_generation_steps = request_max_generation_steps
-        self.current_step = 0
+        
         self.request_selected = []    # a priori random selection
 
         available_positions = self.__get_available_positions()
         for step in range(self.request_max_generation_steps):
-            random_num = random.randint(1, self.request_max_generation_steps)
             if len(available_positions) == 0:
                 break
+            
+            random_num = random.randint(1, self.request_max_generation_steps)
 
             if random_num < REQUEST_CHANCE:
                 random_index = np.random.choice(len(available_positions))
-                request_position = available_positions[random_index]
+                request_position = tuple(available_positions[random_index])
 
                 available_positions = np.delete(available_positions, random_index, 0).tolist()
+
                 priority = random.choices(list(REQUEST_PRIORITY.keys()), REQUEST_WEIGHTS)[0]
             
                 self.request_selected.append(
@@ -100,6 +107,9 @@ class AmbulanceERS(Env):
         self.rendering_initialized = False
         self.viewer = None
         
+    def __log_city(self):
+        self.logger.info("[step=%d] city:\n%s", self.current_step, str(self.grid_city))
+    
     def __get_available_positions(self):
         return np.argwhere(self.grid_city == PRE_IDS["empty"]).tolist()
 
@@ -114,13 +124,13 @@ class AmbulanceERS(Env):
 
 
     def step(self, actions):
-        self.current_step += 1
+        
 
         ## Request generation
         if (self.current_step > self.request_max_generation_steps):
             # At this stage no more request will be generated
             # Agents finish the remaining requests in the city
-            self.logger.info("Finishin phase...")
+            self.logger.info("Finishing phase...")
 
         if len(self.pending_requests) > 0 and self.pending_requests[0][0] == self.current_step:
             request = self.pending_requests[0][1]
@@ -130,9 +140,12 @@ class AmbulanceERS(Env):
 
             # update request presence in the environment
             self.grid_city[request.position] = PRE_IDS["request"]
+            self.__log_city()
 
 
         # TODO env logic
+
+        self.current_step += 1
 
 
     def __init_render(self):
