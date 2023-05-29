@@ -135,13 +135,7 @@ class CityRender(object):
 
         sprite_references = [] # for drawing batch
 
-        active_ambulances = []
-        for agency in env.agencies:
-            for ambulance in agency.ambulances:
-                if ambulance.operating:
-                    active_ambulances.append(ambulance)
-
-        for ambulance in active_ambulances:
+        for ambulance in env.active_ambulances:
             row, col = ambulance.position
             sprite_references.append(pyglet.sprite.Sprite(
                 self.IMAGE_AMBULANCE,

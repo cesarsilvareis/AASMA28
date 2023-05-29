@@ -9,11 +9,12 @@ from aasma import Agent
 from aasma.utils import compare_results
 from aasma.wrappers import SingleAgentWrapper
 from ambulance_emergency_response.environment import AmbulanceERS
+from ambulance_emergency_response.agents import GreedyAgent
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(name)s.%(funcName)s +%(lineno)s: %(levelname)-8s: %(message)s',)
 
-def run_single_agent(environment: Env, agent: Agent, n_episodes: int) -> np.ndarray:
+def run_multiple_agents(environment: Env, agents: list(Agent), n_episodes: int) -> np.ndarray:
 
     results = np.zeros(n_episodes)
 
@@ -22,14 +23,20 @@ def run_single_agent(environment: Env, agent: Agent, n_episodes: int) -> np.ndar
         steps = 0
         terminal = False
         # Reseting the environment (useful for comparated single consecutives autonomous agents)
-        observation = environment.reset()
+        observations = environment.reset()
         while not terminal:
             steps += 1
             
-            # time.sleep(1)
-            agent.see(observation)
-            agent_action = agent.action()
-            next_observation, reward, terminal, info = environment.step(agent_action)
+            time.sleep(1)
+
+            agent_actions = []
+
+            for i in range(len(agents)):
+                agent = agents[i]
+                agent.see(observations[i])
+                agent_actions.append(agent.action())
+
+            next_observations, nreward, terminal, ninfo = environment.step(agent_actions)
             
             print(f"Agent {agent.name} - Timestep {steps}")
             print(f"\tObservation: {observation}")
@@ -48,16 +55,6 @@ def run_single_agent(environment: Env, agent: Agent, n_episodes: int) -> np.ndar
     environment.close()
 
     return results
-
-
-class GreedyAgent(Agent):
-
-    def __init__(self, n_actions: int):
-        super(GreedyAgent, self).__init__("Greedy Agent")
-        self.n_actions = n_actions
-
-    def action(self) -> int:
-       return np.random.randint(self.n_actions)
 
 
 if __name__ == '__main__':
@@ -79,6 +76,8 @@ if __name__ == '__main__':
 
     environment.step([(1,(10, 10)), (0,), (0,), (0,)])  # TODO: actions: ASSIST(request)
 
+    agent = GreedyAgent(environment.action_space.n)
+
     while(True):  # stop execution by closing window or Ctr^ C
         environment.render()
         environment.step([(0,), (0,), (0,), (0,)])
@@ -89,7 +88,7 @@ if __name__ == '__main__':
     exit()
 
     # 2 - Setup agent
-    agent = RandomAgent(environment.action_space.n)
+    agent = GreedyAgent(environment.action_space.n)
 
     # 3 - Evaluate agent
     results = {
