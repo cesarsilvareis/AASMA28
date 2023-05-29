@@ -77,9 +77,12 @@ if __name__ == '__main__':
 
     environment.reset()
 
+    environment.step([(1,(10, 10)), (0,), (0,), (0,)])  # TODO: actions: ASSIST(request)
+
     while(True):  # stop execution by closing window or Ctr^ C
-        environment.step(0)
         environment.render()
+        environment.step([(0,), (0,), (0,), (0,)])
+
         time.sleep(0.5)
 
     # falta implementar o resto em baixo

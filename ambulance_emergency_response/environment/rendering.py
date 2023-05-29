@@ -130,13 +130,38 @@ class CityRender(object):
 
         batch.draw()
 
+    def __draw_ambulances(self, env: AmbulanceERS):
+        batch = pyglet.graphics.Batch()
+
+        sprite_references = [] # for drawing batch
+
+        active_ambulances = []
+        for agency in env.agencies:
+            for ambulance in agency.ambulances:
+                if ambulance.operating:
+                    active_ambulances.append(ambulance)
+
+        for ambulance in active_ambulances:
+            row, col = ambulance.position
+            sprite_references.append(pyglet.sprite.Sprite(
+                self.IMAGE_AMBULANCE,
+                self.block_size * col,
+                self.city_size[0] - (self.block_size * (row + 1)),
+                batch=batch
+            ))
+
+        for sprite in sprite_references:
+            sprite.update(scale=self.block_size / sprite.width)
+
+        batch.draw()
+
     def render(self, env: AmbulanceERS, return_rgb_array: bool = False):
         self.__reset_render()
 
         self.__draw_grid()
         self.__draw_agencies(env)  # draw agents
         self.__draw_requests(env)
-        # TODO: draw ambulances
+        self.__draw_ambulances(env)
 
         self.display_window.flip()
 

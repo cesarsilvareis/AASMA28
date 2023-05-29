@@ -7,9 +7,11 @@ from ambulance_emergency_response.settings import *
 from collections import namedtuple, defaultdict
 from enum import Enum
 from itertools import product
-from gym import Env
+from gym import Env, spaces
 import gym
 from gym.utils import seeding
+from ma_gym.envs.utils.action_space import MultiAgentActionSpace
+from ma_gym.envs.utils.observation_space import MultiAgentObservationSpace
 import numpy as np
 import random
 
@@ -24,19 +26,76 @@ class Agency(Entity):
     def __init__(self, name: str, position: tuple[int, int], num_ambulances: int):
         super().__init__(name, position)
 
-        self.available_ambulances = num_ambulances
-        self.ambulances = [Ambulance(f"{PRE_IDS['ambulance']}#{name}_{i}", position, self) for i in range(num_ambulances)]
+        self.ambulances = [Ambulance(f"{PRE_IDS['ambulance']}#{name}_{i}", self) for i in range(num_ambulances)]
+        self.available_ambulances = self.ambulances.copy()
 
         self.num_assistances_made = 0
+    
+    def assist(self, grid_size, goal):
+        # pick up ambulance
+        ambulance = self.available_ambulances.pop(0)
+        ambulance.take(grid_size, goal)
+        return ambulance
 
 class Ambulance(Entity):
 
-    def __init__(self, name: str, position: tuple[int, int], owner: Agency):
-        super().__init__(name, position)
+    def __init__(self, name: str, owner: Agency):
+        super().__init__(name, owner.position)
         
         self.OWNER = owner  # should not change
-        self.path = None
         self.objective = None
+        self.operating = False
+        self.ongoing_path = None
+
+    def take(self, grid_size, goal):
+        self.operating = True
+        self.objective = goal
+
+        self.ongoing_path = self.__find_path_to_request(grid_size, goal)
+        print(self.ongoing_path)
+    
+    def advance(self):
+        if self.operating == False:
+            return
+        
+        next_position = self.ongoing_path.pop(0)
+        self.position = next_position
+        if self.position == self.objective:
+            self.operating = False
+    
+    def __find_path_to_request(self, grid_size, goal):
+        from collections import deque
+        visited = np.full(grid_size, False)
+        queue = deque()
+        queue.append(self.position)
+        visited[self.position] = True
+        parent = {}
+
+
+        while queue:
+            current_position = queue.popleft()
+            if current_position == goal:
+                path = []
+                position = goal
+                while (position != self.position):
+                    path.append(position)
+                    position = parent[position]
+                path.reverse()
+                return path
+
+            neighboors_positions = self.__get_neighbor_positions(*current_position, grid_size)
+            for n_pos in neighboors_positions:
+                if not visited[n_pos]:
+                    queue.append(n_pos)
+                    visited[n_pos] = True
+                    parent[n_pos] = current_position
+        return None
+
+    def __get_neighbor_positions(self, x, y, grid_size):
+        return [adj_pos for adj_pos in ((x + k, y + l)
+                    for k, l in ((0, -1), (-1, 0), (1, 0), (0, 1)))
+                            if (0 <= adj_pos[0] < grid_size[0] and 0 <= adj_pos[1] < grid_size[1])]
+
 
 class Request(Entity):
 
@@ -61,7 +120,8 @@ class AmbulanceERS(Env):
                  agent_coords: list[tuple[int, int]] = [(495, 495)],
                  agent_num_ambulances: list[int] = [2],
                  request_max_generation_steps: int = 100,
-                 penalty: float = 0.0
+                 penalty: float = 0.0,
+                 sight: float = 0.5, # [0.0, 0.5]
         ):
 
         # TODO: input validations
@@ -74,8 +134,6 @@ class AmbulanceERS(Env):
         self.current_step = 0
 
         self.grid_city = np.full(np.array(city_size) // BLOCK_SIZE, PRE_IDS["empty"])
-        self.grid_city[(0, 1)] = "A"
-        print(self.grid_city)
         self.__log_city()
 
         self.agencies = []
@@ -116,14 +174,25 @@ class AmbulanceERS(Env):
         # create a copy of selected request positions to be considered further on
         self.pending_requests = [r for r in self.request_selected]
 
+        self.active_ambulances = [] # ambulance movement
+
         self.rendering_initialized = False
         self.viewer = None
+
+        self.action_space = MultiAgentActionSpace([spaces.Discrete(len(ACTION_MEANING)) for _ in range(num_agents)])
+        # TODO: observation
+        # self.observation_space = MultiAgentObservationSpace([self.__get_observation_space() for _ in range(num_agents)])
+        self.sight = sight
         
     def __log_city(self):
         self.logger.info("[step=%d] city:\n%s", self.current_step, str(self.grid_city))
     
     def __get_available_positions(self):
         return np.argwhere(self.grid_city == PRE_IDS["empty"]).tolist()
+
+    def __get_observation_space(self):
+        pass
+
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -136,8 +205,19 @@ class AmbulanceERS(Env):
 
 
     def step(self, actions):
-        
 
+        # TODO actions (agents interactions, validations) and env logic
+        for agency, action in zip(self.agencies, actions):
+            match(action[0]):
+                # case 0: # IDLE
+                #     # self.logger.info(f"Agency: {agency.name} idle...")
+                case 1: # ASSIST
+                    # self.logger.info(f"Agency: {agency.name} assisting request on position: {action[1]}...")
+                    ambulance = agency.assist(self.grid_city.shape, action[1])
+                    self.active_ambulances.append(ambulance)
+                    # ...
+
+        #   Dynamic things
         ## Request generation
         if (self.current_step > self.request_max_generation_steps):
             # At this stage no more request will be generated
@@ -152,10 +232,11 @@ class AmbulanceERS(Env):
 
             # update request presence in the environment
             self.grid_city[request.position] = PRE_IDS["request"]
-            self.__log_city()
-
-
-        # TODO env logic
+            # self.__log_city()
+            
+        ## Move ambulances
+        for ambulance in self.active_ambulances:
+            ambulance.advance()
 
         self.current_step += 1
 
