@@ -41,9 +41,9 @@ class CityRender(object):
         self.IMAGE_AGENGY = pyglet.resource.image("agency.png")
         self.IMAGE_AMBULANCE = pyglet.resource.image("ambulance.png")
         self.IMAGE_REQUEST = {
-            0: pyglet.resource.image("patient_low_priority.png"),
+            2: pyglet.resource.image("patient_low_priority.png"),
             1: pyglet.resource.image("patient_middle_priority.png"),
-            2: pyglet.resource.image("patient_high_priority.png"),
+            0: pyglet.resource.image("patient_high_priority.png"),
         }
 
 

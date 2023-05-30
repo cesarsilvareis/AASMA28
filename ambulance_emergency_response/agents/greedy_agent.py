@@ -1,13 +1,13 @@
 from aasma.agent import Agent
 import numpy as np
 
-from ambulance_emergency_response.environment.environment import Action
+from ambulance_emergency_response.environment.environment import Action, Entity
 from ambulance_emergency_response.settings import ACTION_MEANING
 
 class GreedyAgent(Agent):
 
-    def __init__(self, agent_id, n_agents):
-        super(GreedyAgent, self).__init__("Greedy Agent")
+    def __init__(self, agency_name, n_agents):
+        super(GreedyAgent, self).__init__(agency_name)
         self.requests_taken = []
 
     def action(self) -> int:
@@ -17,6 +17,9 @@ class GreedyAgent(Agent):
         observation = self.observation
         agencies = observation.agencies
         actions = observation.actions
+
+        if observation.available_ambulances == 0:
+            return Action(Action.noop)
 
         # find the self agency
         self_agency = None
@@ -36,7 +39,7 @@ class GreedyAgent(Agent):
                 for agency in agencies:
                     if agency.is_self:
                         continue
-                    if self_agency.distance_to(request) < agency.distance_to(request):
+                    if Entity.distance_between(request.position, agency.position) < Entity.distance_between(request.position, closer_agency.position):
                         closer_agency = agency
 
                 # if the self agency is closer to the request than the others agents, add the action to the closer_requests list
@@ -44,10 +47,18 @@ class GreedyAgent(Agent):
                     closer_requests_actions.append(action)
 
         # order the closer_requests list by priority
-        closer_requests_actions.sort(key=lambda request: request.priority)
+        closer_requests_actions.sort(key=lambda action: action.request.priority)
 
+        # make sure request is not already taken
         for i in range(len(closer_requests_actions)):
-            if closer_requests_actions[i] not in self.requests_taken:
-                return ACTION_MEANING.values().index(closer_requests_actions[i].meaning)
+            action = closer_requests_actions[i]
+            if action.request not in self.requests_taken:
+                self.requests_taken.append(action.request)
+                return action
+            
+        print("ACTIONS:")
+        print(actions)
+        print("REQUESTS TAKEN:")
+        print(self.requests_taken)
 
-        return ACTION_MEANING.values().index(Action.noop)
+        return Action(Action.noop)

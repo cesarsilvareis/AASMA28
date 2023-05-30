@@ -23,7 +23,19 @@ class Action():
         self.request = request
         self.meaning = meaning
 
+    def __str__(self):
+        return f"{self.meaning} {self.request}"
+    
+    def __repr__(self):
+        return f"{self.meaning} {self.request}"
+
+    @staticmethod
+    def get_str_int(str: str) -> int:
+        return [key for key, value in ACTION_MEANING.items() if value == str][0]
+
 class Entity(object):
+
+    GRID_SIZE : tuple[int, int]
 
     def __init__(self, name: str, position: tuple[int, int]):
         self.name = name
@@ -31,6 +43,10 @@ class Entity(object):
 
     def distance_to(self, other: 'Entity'):
         return np.linalg.norm(np.array(self.position) - np.array(other.position))
+    
+    @staticmethod
+    def distance_between(position1: tuple[int, int], position2: tuple[int, int]):
+        return np.linalg.norm(np.array(position1) - np.array(position2))
 
 class Agency(Entity):
 
@@ -43,16 +59,21 @@ class Agency(Entity):
 
         self.num_assistances_made = 0
     
-    def assist(self, grid_size, goal):
+    def assist(self, request: 'Request'):
         # pick up ambulance
+        if len(self.available_ambulances) == 0:
+            return None
         ambulance = self.available_ambulances.pop(0)
-        ambulance.take(grid_size, goal)
+        ambulance.take(request.position, request)
         return ambulance
+    
+    def retrieve_ambulance(self, ambulance: 'Ambulance'):
+        self.available_ambulances.append(ambulance)
 
-    def __reset(self):
+    def reset(self):
         self.available_ambulances = self.ambulances.copy()
         for ambulance in self.ambulances:
-            ambulance.__reset()
+            ambulance.reset()
 
 class Ambulance(Entity):
 
@@ -63,26 +84,36 @@ class Ambulance(Entity):
         self.objective = None
         self.operating = False
         self.ongoing_path = None
+        self.request : 'Request' = None
 
-    def take(self, grid_size, goal):
+    def take(self, goal, request: 'Request'=None):
         self.operating = True
         self.objective = goal
+        
+        if request is not None:
+            self.request = request
 
-        self.ongoing_path = self.__find_path_to_request(grid_size, goal)
-        print(self.ongoing_path)
+        self.ongoing_path = self.__find_path_to_request(goal)
+
     
-    def advance(self):
+    def advance(self) -> bool:
         if self.operating == False:
-            return
+            return False
         
         next_position = self.ongoing_path.pop(0)
         self.position = next_position
         if self.position == self.objective:
-            self.operating = False
+            if self.position == self.OWNER.position:
+                self.operating = False
+                return True
+            else:
+                self.take(self.OWNER.position)
+                return True
+        return False
     
-    def __find_path_to_request(self, grid_size, goal):
+    def __find_path_to_request(self, goal):
         from collections import deque
-        visited = np.full(grid_size, False)
+        visited = np.full(Entity.GRID_SIZE, False)
         queue = deque()
         queue.append(self.position)
         visited[self.position] = True
@@ -100,7 +131,7 @@ class Ambulance(Entity):
                 path.reverse()
                 return path
 
-            neighboors_positions = self.__get_neighbor_positions(*current_position, grid_size)
+            neighboors_positions = self.__get_neighbor_positions(*current_position)
             for n_pos in neighboors_positions:
                 if not visited[n_pos]:
                     queue.append(n_pos)
@@ -108,15 +139,16 @@ class Ambulance(Entity):
                     parent[n_pos] = current_position
         return None
 
-    def __get_neighbor_positions(self, x, y, grid_size):
+    def __get_neighbor_positions(self, x, y):
         return [adj_pos for adj_pos in ((x + k, y + l)
                     for k, l in ((0, -1), (-1, 0), (1, 0), (0, 1)))
-                            if (0 <= adj_pos[0] < grid_size[0] and 0 <= adj_pos[1] < grid_size[1])]
+                            if (0 <= adj_pos[0] < Entity.GRID_SIZE[0] and 0 <= adj_pos[1] < Entity.GRID_SIZE[1])]
 
-    def __reset(self):
+    def reset(self):
         self.objective = None
         self.operating = False
         self.ongoing_path = None
+        self.request = None
         self.position = self.OWNER.position
 
 
@@ -126,6 +158,15 @@ class Request(Entity):
         super().__init__(name, position)
 
         self.priority = priority
+
+    def __str__(self) -> str:
+        return f"{self.name} {self.position} {self.priority}"
+    
+    def __repr__(self) -> str:
+        return f"{self.name} {self.position} {self.priority}"
+
+    def __eq__(self, other: 'Request'):
+        return self.name == other.name
 
 
 class AmbulanceERS(Env):
@@ -138,7 +179,7 @@ class AmbulanceERS(Env):
 
     Observation = namedtuple(
         "Observation",
-        ["field", "actions", "agencies", "available_ambulances", "current_step", "finishing_phase"],
+        ["field", "actions", "agencies", "available_ambulances", "current_step",],
     )
     AgentObservation = namedtuple(
         "PlayerObservation", 
@@ -167,15 +208,14 @@ class AmbulanceERS(Env):
         self.current_step = 0
 
         self.grid_city = np.full(np.array(city_size) // BLOCK_SIZE, PRE_IDS["empty"])
-        self.__log_city()
+        Entity.GRID_SIZE = self.grid_city.shape
 
-        self.agencies = []
+        self.agencies : list[Agency] = []
         for i in range(self.N_AGENTS):
             agency_position = tuple(np.minimum(np.array(agent_coords[i]) // BLOCK_SIZE, np.array(self.grid_city.shape) - 1))
             agent_i = Agency(f"{PRE_IDS['agent']}_" + str(i), agency_position, agent_num_ambulances[i])
             self.agencies.append(agent_i)
             self.grid_city[agent_i.position] = PRE_IDS["agent"]
-        self.__log_city()
 
         self.penalty = penalty
 
@@ -202,11 +242,11 @@ class AmbulanceERS(Env):
                     (step, Request(f"{PRE_IDS['request']}_{step}", request_position, priority))
                 )
 
-        self.live_requests = []
+        self.live_requests : list[Request] = []
         # create a copy of selected request positions to be considered further on
         self.pending_requests = [r for r in self.request_selected]
 
-        self.active_ambulances = [] # ambulance movement
+        self.active_ambulances : list[Ambulance] = [] # ambulance movement
         self.finishing_phase = False
 
         self.rendering_initialized = False
@@ -252,6 +292,7 @@ class AmbulanceERS(Env):
             agencies=[self.AgentObservation(
                 is_self=(agency == agent),
                 position=agency.position,
+                reward=agency.reward, # FIXME: rewards like this??
             ) for agency in self.agencies],
             available_ambulances=len(agent.available_ambulances),
             current_step=self.current_step,
@@ -263,8 +304,8 @@ class AmbulanceERS(Env):
                 if agency.is_self:
                     return agency.reward
         
-        nobs = [self.__make_obs(agency) for agency in range(self.agencies)]
-        nreward = [get_agency_reward(observation=o) for o in nobs]
+        nobs = { agency.name: self.__make_obs(agency) for agency in self.agencies}
+        nreward = [get_agency_reward(observation=o) for o in nobs.values()]
         terminal = self.finishing_phase
         ninfo = [{"observation": o} for o in nobs]
         
@@ -277,12 +318,12 @@ class AmbulanceERS(Env):
         self.finishing_phase = False
 
         for agency in self.agencies:
-            agency.__reset() # this also resets ambulances
+            agency.reset() # this also resets ambulances
 
         self.render()
 
         
-        return [self.__make_obs(agency) for agency in self.agencies]
+        return { agency.name: self.__make_obs(agency) for agency in self.agencies}
 
 
     def step(self, actions):
@@ -295,8 +336,9 @@ class AmbulanceERS(Env):
                 case Action.assist: # ASSIST
                     request = action.request
                     self.logger.info(f"Agency: {agency.name} assisting request on position: {request.position}...")
-                    ambulance = agency.assist(self.grid_city.shape, request.position)
-                    self.active_ambulances.append(ambulance)
+                    ambulance = agency.assist(request)
+                    if ambulance is not None:
+                        self.active_ambulances.append(ambulance)
                     # ...
 
         #   Dynamic things
@@ -320,7 +362,18 @@ class AmbulanceERS(Env):
             
         ## Move ambulances
         for ambulance in self.active_ambulances:
-            ambulance.advance()
+            reached_goal = ambulance.advance()
+            
+            # if reached patient request
+            if reached_goal and ambulance.operating:
+                if ambulance.request in self.live_requests:
+                    self.live_requests.remove(ambulance.request)
+                
+            # if reached owner agency
+            elif reached_goal and not ambulance.operating:
+                self.active_ambulances.remove(ambulance)
+                ambulance.OWNER.retrieve_ambulance(ambulance)
+
             self.grid_city[ambulance.position] = PRE_IDS["ambulance"]
 
         self.current_step += 1
