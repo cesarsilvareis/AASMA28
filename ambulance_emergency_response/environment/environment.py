@@ -29,6 +29,9 @@ class Entity(object):
         self.name = name
         self.position = position
 
+    def distance_to(self, other: 'Entity'):
+        return np.linalg.norm(np.array(self.position) - np.array(other.position))
+
 class Agency(Entity):
 
     def __init__(self, name: str, position: tuple[int, int], num_ambulances: int):
@@ -152,6 +155,8 @@ class AmbulanceERS(Env):
                  sight: float = 1.0, # [0.0, 1.0]
         ):
 
+        self.N_AGENTS = num_agents
+
         # TODO: input validations
 
         self.logger = logging.getLogger(__name__)
@@ -165,7 +170,7 @@ class AmbulanceERS(Env):
         self.__log_city()
 
         self.agencies = []
-        for i in range(num_agents):
+        for i in range(self.N_AGENTS):
             agency_position = tuple(np.minimum(np.array(agent_coords[i]) // BLOCK_SIZE, np.array(self.grid_city.shape) - 1))
             agent_i = Agency(f"{PRE_IDS['agent']}_" + str(i), agency_position, agent_num_ambulances[i])
             self.agencies.append(agent_i)
@@ -243,7 +248,7 @@ class AmbulanceERS(Env):
     def __make_obs(self, agent: Agency):
         return self.Observation(
             field=np.copy(self.grid_city),
-            actions=self.__get_valid_actions(),
+            actions=self.__get_valid_actions(agent),
             agencies=[self.AgentObservation(
                 is_self=(agency == agent),
                 position=agency.position,
@@ -284,12 +289,13 @@ class AmbulanceERS(Env):
 
         # TODO actions (agents interactions, validations) and env logic
         for agency, action in zip(self.agencies, actions):
-            match(action[0]):
-                # case 0: # IDLE
-                #     # self.logger.info(f"Agency: {agency.name} idle...")
-                case 1: # ASSIST
-                    # self.logger.info(f"Agency: {agency.name} assisting request on position: {action[1]}...")
-                    ambulance = agency.assist(self.grid_city.shape, action[1])
+            match(action.meaning):
+                case Action.noop: # IDLE
+                    self.logger.info(f"Agency: {agency.name} idle...")
+                case Action.assist: # ASSIST
+                    request = action.request
+                    self.logger.info(f"Agency: {agency.name} assisting request on position: {request.position}...")
+                    ambulance = agency.assist(self.grid_city.shape, request.position)
                     self.active_ambulances.append(ambulance)
                     # ...
 
@@ -315,6 +321,7 @@ class AmbulanceERS(Env):
         ## Move ambulances
         for ambulance in self.active_ambulances:
             ambulance.advance()
+            self.grid_city[ambulance.position] = PRE_IDS["ambulance"]
 
         self.current_step += 1
 

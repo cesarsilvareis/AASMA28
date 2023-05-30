@@ -14,7 +14,7 @@ from ambulance_emergency_response.agents import GreedyAgent
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(name)s.%(funcName)s +%(lineno)s: %(levelname)-8s: %(message)s',)
 
-def run_multiple_agents(environment: Env, agents: list(Agent), n_episodes: int) -> np.ndarray:
+def run_multiple_agents(environment: Env, agents: list[Agent], n_episodes: int) -> np.ndarray:
 
     results = np.zeros(n_episodes)
 
@@ -38,18 +38,19 @@ def run_multiple_agents(environment: Env, agents: list(Agent), n_episodes: int) 
 
             next_observations, nreward, terminal, ninfo = environment.step(agent_actions)
             
-            print(f"Agent {agent.name} - Timestep {steps}")
-            print(f"\tObservation: {observation}")
-            # print(f"\tAction: {environment.get_action_meanings()[agent_action]}")
-            print(f"\tInfo: {info}")
-            print(f"\tReward: {reward}\n")
+            for agent, observation, reward, info in zip(agents, observations, nreward, ninfo):
+                print(f"Agent {agent.name} - Timestep {steps}")
+                print(f"\tObservation: {observation}")
+                # print(f"\tAction: {environment.get_action_meanings()[agent_action]}")
+                print(f"\tInfo: {info}")
+                print(f"\tReward: {reward}\n")
 
             environment.render()
             # time.sleep(1)
 
-            observation = next_observation         
+            observations = next_observations
 
-
+        # TODO: store a *relevant* metric of the episode
         results[episode] = steps
 
     environment.close()
@@ -70,30 +71,17 @@ if __name__ == '__main__':
         agent_coords=[(220, 40), (40, 220), (220, 440), (440, 220)],
         agent_num_ambulances=[2, 2, 2, 2]        
     )
-    # environment = SingleAgentWrapper(environment, agent_id=0)
 
-    environment.reset()
-
-    environment.step([(1,(10, 10)), (0,), (0,), (0,)])  # TODO: actions: ASSIST(request)
-
-    agent = GreedyAgent(environment.action_space.n)
-
-    while(True):  # stop execution by closing window or Ctr^ C
-        environment.render()
-        environment.step([(0,), (0,), (0,), (0,)])
-
-        time.sleep(0.5)
-
-    # falta implementar o resto em baixo
-    exit()
-
-    # 2 - Setup agent
-    agent = GreedyAgent(environment.action_space.n)
+    # 2 - Setup agent teams
+    teams = {
+        "Greedy Agencies": [GreedyAgent(environment.action_space[i].n) for i in range(environment.N_AGENTS)]
+    }
 
     # 3 - Evaluate agent
-    results = {
-        agent.name: run_single_agent(environment, agent, opt.episodes)
-    }
+    results = {}
+    for team, agents in teams.items():
+        result = run_multiple_agents(environment, agents)
+        results[team] = result
 
     # 4 - Compare results
     print(results)

@@ -11,15 +11,15 @@ ACTION_MEANING = {
 }
 
 REQUEST_PRIORITY = {
-    0: "GREEN",
+    0: "RED",
     1: "YELLOW",
-    2: "RED"
+    2: "GREEN"
 }
 
 REQUEST_WEIGHTS = [
-    0.6,
+    0.1,
     0.3,
-    0.1
+    0.6
 ]
 
 # in each interval there is a 80% chance of a request happening
