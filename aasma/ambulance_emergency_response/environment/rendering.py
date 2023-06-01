@@ -6,39 +6,24 @@ import os
 import pyglet
 import numpy as np
 from pyglet.gl import *
-from PIL import ImageColor
+import gym;
 
 from .environment import AmbulanceERS
 from ambulance_emergency_response.settings import GRID_COLOR, STREET_COLOR
-
-WORLD_PADDING = (10, 10)
-METRIC_BATCH_PROPORTION = .75
-METRIC_BG_COLOR = ImageColor.getcolor("#F0DFAD", mode='RGB')
-METRIC_TEXT_COLOR = ImageColor.getcolor("#000000FF", mode='RGBA')
-METRIC_SEP_SIZE = 50
-METRIC_FONT_SIZE = 12
 
 class CityRender(object):
 
     def __init__(self, grid_size=(20, 20), cell_size=1):
 
         self.city_size = (
-            grid_size[1] * cell_size,
-            grid_size[0] * cell_size
+            grid_size[0] * cell_size,
+            grid_size[1] * cell_size
         )
-
-        self.world_width = int((1.00 + METRIC_BATCH_PROPORTION) * self.city_size[0])
-        self.world_height = self.city_size[1]
-
-        # pivot position
-        self.px, self.py = WORLD_PADDING
 
         self.display_window = pyglet.window.Window(
-            width=self.world_width + 2 * self.px, 
-            height=self.world_height + 2 * self.py,
+            width=self.city_size[0], height=self.city_size[1],
             display=None, caption="Ambulance Emergency Response Challenge"
         )
-
 
         self.block_size = cell_size
 
@@ -87,17 +72,16 @@ class CityRender(object):
 
         line_references = [] # for drawing batch
         
-        # draws grid lines
-        for offset in range(0, self.city_size[0] + (self.city_size[0] % self.block_size) + 1, self.block_size):
+        for offset in range(self.block_size, self.city_size[1], self.block_size):
 
             # column lines
             line_references.append(pyglet.shapes.Line(
-                self.px + offset, self.py, self.px + offset, self.py + self.city_size[1], width=2, color=GRID_COLOR, batch=batch
+                offset, 0, offset, self.city_size[0], width=2, color=GRID_COLOR, batch=batch
             ))
 
             # row lines
             line_references.append(pyglet.shapes.Line(
-                self.px, self.py + offset, self.px + self.city_size[0], self.py + offset, width=2, color=GRID_COLOR, batch=batch
+                0, offset, self.city_size[1], offset, width=2, color=GRID_COLOR, batch=batch
             ))
 
         batch.draw()
@@ -111,8 +95,8 @@ class CityRender(object):
             row, col = agency.position
             sprite_references.append(pyglet.sprite.Sprite(
                 self.IMAGE_AGENGY,
-                self.px + self.block_size * col,
-                self.py + self.city_size[0] - (self.block_size * (row + 1)),
+                self.block_size * col,
+                self.city_size[0] - (self.block_size * (row + 1)),
                 batch=batch
             ))
 
@@ -136,8 +120,8 @@ class CityRender(object):
             request_priority = request.priority
             sprite_references.append(pyglet.sprite.Sprite(
                 self.IMAGE_REQUEST[request_priority],
-                self.px + self.block_size * col,
-                self.py + self.city_size[0] - (self.block_size * (row + 1)),
+                self.block_size * col,
+                self.city_size[0] - (self.block_size * (row + 1)),
                 batch=batch
             ))
 
@@ -155,8 +139,8 @@ class CityRender(object):
             row, col = ambulance.position
             sprite_references.append(pyglet.sprite.Sprite(
                 self.IMAGE_AMBULANCE,
-                self.px + self.block_size * col,
-                self.py + self.city_size[0] - (self.block_size * (row + 1)),
+                self.block_size * col,
+                self.city_size[0] - (self.block_size * (row + 1)),
                 batch=batch
             ))
 
@@ -165,34 +149,6 @@ class CityRender(object):
 
         batch.draw()
 
-    def __draw_info(self, env: AmbulanceERS):
-        batch = pyglet.graphics.Batch()
-
-        x, y = self.px + self.city_size[0] + self.px, self.py
-
-        # draws background
-        square = pyglet.shapes.Rectangle(x, y, self.world_width - x + self.px, 
-                                self.world_height, color=METRIC_BG_COLOR, batch=batch)
-        batch.draw()
-
-        metrics_references = []
-
-        batch = pyglet.graphics.Batch()
-
-        metrics_references.append(pyglet.text.Label(
-                text=f"Metrics:", x=x + self.px, y = self.world_height - y, 
-                font_size=int(1.25 * METRIC_FONT_SIZE), bold=True, color=METRIC_TEXT_COLOR, batch=batch
-        ))
-
-        for i, (metric, value) in enumerate(env.metrics.items()):
-            metrics_references.append(pyglet.text.Label(
-                text=f"{metric}: {value}", x=x + self.px, y = self.world_height - y - ((i + 1) * METRIC_SEP_SIZE), 
-                font_size=METRIC_FONT_SIZE, color=METRIC_TEXT_COLOR, batch=batch
-            ))
-        
-        batch.draw()
-
-
     def render(self, env: AmbulanceERS, return_rgb_array: bool = False):
         self.__reset_render()
 
@@ -200,7 +156,6 @@ class CityRender(object):
         self.__draw_agencies(env)  # draw agents
         self.__draw_requests(env)
         self.__draw_ambulances(env)
-        self.__draw_info(env)
 
         self.display_window.flip()
 

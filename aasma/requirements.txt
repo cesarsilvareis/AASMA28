@@ -1,0 +1,5 @@
+numpy
+ma-gym
+pyglet
+matplotlib
+scipy

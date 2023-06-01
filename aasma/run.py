@@ -7,8 +7,9 @@ from gym import Env
 
 from aasma import Agent
 from aasma.utils import compare_results
+from aasma.wrappers import SingleAgentWrapper
 from ambulance_emergency_response.environment import AmbulanceERS
-from ambulance_emergency_response.agents import RandomAgent, GreedyAgent
+from ambulance_emergency_response.agents import GreedyAgent
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(name)s.%(funcName)s +%(lineno)s: %(levelname)-8s: %(message)s',)
@@ -26,7 +27,7 @@ def run_multiple_agents(environment: Env, agents: list[Agent], n_episodes: int) 
         while not terminal:
             steps += 1
             
-            time.sleep(.5)
+            time.sleep(0.1)
 
             agent_actions = []
 
@@ -37,6 +38,7 @@ def run_multiple_agents(environment: Env, agents: list[Agent], n_episodes: int) 
                 agent_actions.append(agent_action)
                 print(f"Agent {i} with action: {agent_action}")
 
+            print(agent_actions)
             next_observations, nreward, terminal, ninfo = environment.step(agent_actions)
             
             # for agent, observation, reward, info in zip(agents, observations, nreward, ninfo):
@@ -76,14 +78,13 @@ if __name__ == '__main__':
 
     # 2 - Setup agent teams
     teams = {
-        "Greedy Agencies": [GreedyAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
-        #"Random Agencies": [RandomAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
+        "Greedy Agencies": [GreedyAgent() for i in range(environment.N_AGENTS)]
     }
 
     # 3 - Evaluate agent
     results = {}
     for team, agents in teams.items():
-        result = run_multiple_agents(environment, agents, 1)
+        result = run_multiple_agents(environment, agents, opt.episodes)
         results[team] = result
 
     # 4 - Compare results

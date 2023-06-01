@@ -3,16 +3,17 @@
 ###########################################################################
 
 import logging
-import numpy as np
-import random
 from ambulance_emergency_response.settings import *
 from collections import namedtuple, defaultdict
 from enum import Enum
 from itertools import product
 from gym import Env, spaces
+import gym
 from gym.utils import seeding
 from ma_gym.envs.utils.action_space import MultiAgentActionSpace
 from ma_gym.envs.utils.observation_space import MultiAgentObservationSpace
+import numpy as np
+import random
 
 class Action():
     assist = ACTION_MEANING[0]
@@ -23,10 +24,10 @@ class Action():
         self.meaning = meaning
 
     def __str__(self):
-        return f"{self.meaning} {self.request}" if self.request else f"{self.meaning}"
+        return f"{self.meaning} {self.request}"
     
     def __repr__(self):
-        return f"{self.meaning} {self.request}" if self.request else f"{self.meaning}"
+        return f"{self.meaning} {self.request}"
 
     @staticmethod
     def get_str_int(str: str) -> int:
@@ -46,10 +47,6 @@ class Entity(object):
     @staticmethod
     def distance_between(position1: tuple[int, int], position2: tuple[int, int]):
         return np.linalg.norm(np.array(position1) - np.array(position2))
-    
-    @staticmethod
-    def in_world(position: tuple[int, int]):
-        return 0 <= position[0] < Entity.GRID_SIZE[0] and 0 <= position[1] < Entity.GRID_SIZE[1]
 
 class Agency(Entity):
 
@@ -62,7 +59,7 @@ class Agency(Entity):
 
         self.num_assistances_made = 0
     
-    def assist(self, request: 'Request') -> 'Ambulance':
+    def assist(self, request: 'Request'):
         # pick up ambulance
         if len(self.available_ambulances) == 0:
             return None
@@ -90,14 +87,14 @@ class Ambulance(Entity):
         self.request : 'Request' = None
 
     def take(self, goal, request: 'Request'=None):
-
+        self.operating = True
+        self.objective = goal
+        
         if request is not None:
             self.request = request
 
         self.ongoing_path = self.__find_path_to_request(goal)
-        if self.ongoing_path is not None:
-            self.operating = True
-            self.objective = goal
+
     
     def advance(self) -> bool:
         if self.operating == False:
@@ -122,6 +119,7 @@ class Ambulance(Entity):
         visited[self.position] = True
         parent = {}
 
+
         while queue:
             current_position = queue.popleft()
             if current_position == goal:
@@ -144,7 +142,7 @@ class Ambulance(Entity):
     def __get_neighbor_positions(self, x, y):
         return [adj_pos for adj_pos in ((x + k, y + l)
                     for k, l in ((0, -1), (-1, 0), (1, 0), (0, 1)))
-                            if (Entity.in_world(adj_pos))]
+                            if (0 <= adj_pos[0] < Entity.GRID_SIZE[0] and 0 <= adj_pos[1] < Entity.GRID_SIZE[1])]
 
     def reset(self):
         self.objective = None
@@ -184,7 +182,7 @@ class AmbulanceERS(Env):
         ["field", "actions", "agencies", "available_ambulances", "current_step",],
     )
     AgentObservation = namedtuple(
-        "PlayerObservation", 
+        "AgentObservation", 
         ["is_self", "position", "reward"]
     )
 
@@ -258,19 +256,11 @@ class AmbulanceERS(Env):
         self.action_space = MultiAgentActionSpace([spaces.Discrete(len(ACTION_MEANING)) for _ in range(num_agents)])
         self.observation_space = MultiAgentObservationSpace([self.__get_observation_space() for _ in range(num_agents)])
 
-        ## Metrics
-        self.num_taken_requests = 0
-        self.num_spawned_requests = 0
-
-        self.metrics = {
-            "Response-rate": 0.00,
-        }
-
-
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
-       
+    
+        
     def __log_city(self):
         self.logger.info("[step=%d] city:\n%s", self.current_step, str(self.grid_city))
     
@@ -302,10 +292,11 @@ class AmbulanceERS(Env):
             agencies=[self.AgentObservation(
                 is_self=(agency == agent),
                 position=agency.position,
-                reward=agency.reward, # FIXME: rewards like this??
+                reward=agency.reward,
             ) for agency in self.agencies],
             available_ambulances=len(agent.available_ambulances),
             current_step=self.current_step,
+            finishing_phase=self.finishing_phase
         )
     
     def __make_gym_obs(self):
@@ -336,8 +327,9 @@ class AmbulanceERS(Env):
         return { agency.name: self.__make_obs(agency) for agency in self.agencies}
 
 
-    def step(self, actions):
+    def step(self, actions: list[Action]):
 
+        # TODO actions (agents interactions, validations) and env logic
         for agency, action in zip(self.agencies, actions):
             match(action.meaning):
                 case Action.noop: # IDLE
@@ -350,7 +342,7 @@ class AmbulanceERS(Env):
                         self.active_ambulances.append(ambulance)
                     # ...
 
-        ##   Dynamic things
+        #   Dynamic things
         ## Request generation
         if not self.finishing_phase:
             if self.current_step > self.request_max_generation_steps:
@@ -365,40 +357,26 @@ class AmbulanceERS(Env):
 
                 self.pending_requests = self.pending_requests[1:]
 
-                self.num_spawned_requests += 1
-
                 # update request presence in the environment
                 self.grid_city[request.position] = PRE_IDS["request"]
+                # self.__log_city()
             
-        # Move ambulances
+        ## Move ambulances
         for ambulance in self.active_ambulances:
-            if (self.grid_city[ambulance.position] == PRE_IDS["ambulance"]):
-                self.grid_city[ambulance.position] = PRE_IDS["empty"]
             reached_goal = ambulance.advance()
-            self.grid_city[ambulance.position] = PRE_IDS["ambulance"]
-
+            
             # if reached patient request
-            if reached_goal and ambulance.operating and ambulance.request in self.live_requests:
-                self.live_requests.remove(ambulance.request)
-                
+            if reached_goal and ambulance.operating:
+                if ambulance.request in self.live_requests:
+                    self.live_requests.remove(ambulance.request)
                 
             # if reached owner agency
             elif reached_goal and not ambulance.operating:
-                if ambulance.request is not None: # success
-                    self.num_taken_requests += 1
-                else: # returned without patient
-                    pass
                 self.active_ambulances.remove(ambulance)
                 ambulance.OWNER.retrieve_ambulance(ambulance)
-                self.grid_city[ambulance.position] = PRE_IDS["agent"]
 
+            self.grid_city[ambulance.position] = PRE_IDS["ambulance"]
 
-        # TODO: Update metrics
-        if (self.num_spawned_requests):
-            self.metrics["Response-rate"] = self.num_taken_requests / self.num_spawned_requests
-
-
-        self.__log_city()
         self.current_step += 1
 
         # TODO: change second argument (reward)
