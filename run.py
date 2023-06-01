@@ -9,7 +9,7 @@ from aasma import Agent
 from aasma.utils import compare_results
 from aasma.wrappers import SingleAgentWrapper
 from ambulance_emergency_response.environment import AmbulanceERS
-from ambulance_emergency_response.agents import GreedyAgent
+from ambulance_emergency_response.agents import RandomAgent ,GreedyAgent
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(name)s.%(funcName)s +%(lineno)s: %(levelname)-8s: %(message)s',)
@@ -27,7 +27,7 @@ def run_multiple_agents(environment: Env, agents: list[Agent], n_episodes: int) 
         while not terminal:
             steps += 1
             
-            time.sleep(0.1)
+            time.sleep(1)
 
             agent_actions = []
 
@@ -77,7 +77,8 @@ if __name__ == '__main__':
 
     # 2 - Setup agent teams
     teams = {
-        "Greedy Agencies": [GreedyAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies]
+        "Greedy Agencies": [GreedyAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
+        #"Random Agencies": [RandomAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
     }
 
     # 3 - Evaluate agent

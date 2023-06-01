@@ -1,1 +1,2 @@
 from ambulance_emergency_response.agents.greedy_agent import GreedyAgent
+from ambulance_emergency_response.agents.random_agent import RandomAgent
