@@ -186,7 +186,7 @@ class CityRender(object):
 
         for i, (metric, value) in enumerate(env.metrics.items()):
             metrics_references.append(pyglet.text.Label(
-                text=f"{metric}: {value}", x=x + self.px, y = self.world_height - y - ((i + 1) * METRIC_SEP_SIZE), 
+                text="%s: %.3f" %(metric, value), x=x + self.px, y = self.world_height - y - ((i + 1) * METRIC_SEP_SIZE), 
                 font_size=METRIC_FONT_SIZE, color=METRIC_TEXT_COLOR, batch=batch
             ))
         

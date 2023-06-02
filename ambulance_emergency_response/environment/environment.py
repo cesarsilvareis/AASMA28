@@ -14,6 +14,18 @@ from gym.utils import seeding
 from ma_gym.envs.utils.action_space import MultiAgentActionSpace
 from ma_gym.envs.utils.observation_space import MultiAgentObservationSpace
 
+class Message(object):
+
+        def __init__(self, request: 'Request', sender: 'Agency'):
+            self.request = request
+            self.sender = sender
+    
+        def __str__(self):
+            return f"{self.sender.name} -> {self.request}"
+    
+        def __repr__(self):
+            return f"{self.sender.name} -> {self.request}"
+
 class Action():
     assist = ACTION_MEANING[0]
     noop = ACTION_MEANING[1]
@@ -21,6 +33,10 @@ class Action():
     def __init__(self,  meaning: str, request: 'Request'=None):
         self.request = request
         self.meaning = meaning
+        self.message = None
+
+    def attach_message(self, message: Message):
+        self.message = message
 
     def __str__(self):
         return f"{self.meaning} {self.request}" if self.request else f"{self.meaning}"
@@ -185,7 +201,7 @@ class AmbulanceERS(Env):
 
     Observation = namedtuple(
         "Observation",
-        ["field", "actions", "agencies", "available_ambulances", "current_step",],
+        ["field", "actions", "agencies", "available_ambulances", "current_step", "messages",],
     )
     AgentObservation = namedtuple(
         "PlayerObservation", 
@@ -266,13 +282,16 @@ class AmbulanceERS(Env):
         self.num_taken_requests = 0
         self.num_spawned_requests = 0
         self.total_time_alive_requests = 0
-        self.total_number_ambulances = 0
+        self.total_number_ambulances = sum([len(agency.ambulances) for agency in self.agencies])
 
         self.metrics = {
             "Response-rate": 0.00,
             "Response-time": 0.00,
-            "Ambulance-availability": 0.00,
+            "Ambulance-availability": float(self.total_number_ambulances),
         }
+
+        # message passing
+        self.message_queue = []
 
 
     def seed(self, seed=None):
@@ -284,6 +303,9 @@ class AmbulanceERS(Env):
     
     def __get_available_positions(self):
         return np.argwhere(self.grid_city == PRE_IDS["empty"]).tolist()
+    
+    def __get_closest_agency(self, request: Request) -> Agency:
+        return min(self.agencies, key=lambda agency: np.linalg.norm(np.array(agency.position) - np.array(request.position)))
 
     def __get_observation_space(self):
         grid_shape = np.array(np.array(self.grid_city.shape) * self.sight, dtype=int)
@@ -299,9 +321,14 @@ class AmbulanceERS(Env):
 
         if len(agent.ambulances) > 0:
             for request in self.live_requests:
-                actions.append(Action(Action.assist, request))
+                # check if this agency is the closest to the request
+                if self.__get_closest_agency(request) == agent:
+                    actions.append(Action(Action.assist, request))
 
         return actions
+    
+    def __get_messages(self, agent: Agency):
+        return [message for message in self.message_queue if message.sender != agent]
 
     def __make_obs(self, agent: Agency):
         return self.Observation(
@@ -314,6 +341,7 @@ class AmbulanceERS(Env):
             ) for agency in self.agencies],
             available_ambulances=len(agent.available_ambulances),
             current_step=self.current_step,
+            messages=self.__get_messages(agent),
         )
     
     def __make_gym_obs(self):
@@ -346,7 +374,11 @@ class AmbulanceERS(Env):
 
     def step(self, actions):
 
+        self.message_queue.clear()
+
         for agency, action in zip(self.agencies, actions):
+            if action.message is not None:
+                self.message_queue.append(action.message)
             match(action.meaning):
                 case Action.noop: # IDLE
                     self.logger.info(f"Agency: {agency.name} idle...")
@@ -440,32 +472,3 @@ class AmbulanceERS(Env):
         else:
             # render not called yet
             pass
-
-
-    # def simplified_features(self):
-
-    #     current_grid = np.array(self._full_obs)
-
-    #     agent_pos = []
-    #     for agent_id in range(self.n_agents):
-    #         tag = f"A{agent_id + 1}"
-    #         row, col = np.where(current_grid == tag)
-    #         row = row[0]
-    #         col = col[0]
-    #         agent_pos.append((col, row))
-
-    #     request_pos = []
-    #     for step in range(self.steps):
-    #         random_num = random.randint(1, self.steps)
-
-    #         if random_num < REQUEST_CHANCE:
-    #             x = random.randint(0, self.grid_shape[0])
-    #             y = random.randint(0, self.grid_shape[1])
-
-    #             priority = random.choice(REQUEST_PRIORITY, REQUEST_WEIGHTS)
-                
-    #             request_pos.append((step, x, y, priority))
-    
-    #     features = np.array(agent_pos + request_pos).reshape(-1)
-
-    #     return features
