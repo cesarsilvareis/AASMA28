@@ -2,7 +2,7 @@ from aasma.agent import Agent
 import numpy as np
 
 from ambulance_emergency_response.environment.environment import Action, Entity
-from ambulance_emergency_response.settings import ACTION_MEANING
+from ambulance_emergency_response.settings import ERSAction
 
 class GreedyAgent(Agent):
 
@@ -19,7 +19,7 @@ class GreedyAgent(Agent):
         actions = observation.actions
 
         if observation.available_ambulances == 0:
-            return Action(Action.noop)
+            return Action(ERSAction.NOOP)
 
         # find the self agency
         self_agency = None
@@ -61,4 +61,4 @@ class GreedyAgent(Agent):
         print("REQUESTS TAKEN:")
         print(self.requests_taken)
 
-        return Action(Action.noop)
+        return Action(ERSAction.NOOP)

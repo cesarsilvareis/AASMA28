@@ -53,7 +53,7 @@ class Agency(Entity):
     def __init__(self, name: str, position: tuple[int, int], num_ambulances: int):
         super().__init__(name, position)
 
-        self.ambulances = [Ambulance(f"{PRE_IDS['ambulance']}#{name}_{i}", self) for i in range(num_ambulances)]
+        self.ambulances = [Ambulance(f"{ENTITY_IDS['ambulance']}#{name}_{i}", self) for i in range(num_ambulances)]
         self.available_ambulances = self.ambulances.copy()
         self.reward = 0
 
@@ -207,15 +207,15 @@ class AmbulanceERS(Env):
         
         self.current_step = 0
 
-        self.grid_city = np.full(np.array(city_size) // BLOCK_SIZE, PRE_IDS["empty"])
+        self.grid_city = np.full(np.array(city_size) // BLOCK_SIZE, ENTITY_IDS["empty"])
         Entity.GRID_SIZE = self.grid_city.shape
 
         self.agencies : list[Agency] = []
         for i in range(self.N_AGENTS):
             agency_position = tuple(np.minimum(np.array(agent_coords[i]) // BLOCK_SIZE, np.array(self.grid_city.shape) - 1))
-            agent_i = Agency(f"{PRE_IDS['agent']}_" + str(i), agency_position, agent_num_ambulances[i])
+            agent_i = Agency(f"{ENTITY_IDS['agent']}_" + str(i), agency_position, agent_num_ambulances[i])
             self.agencies.append(agent_i)
-            self.grid_city[agent_i.position] = PRE_IDS["agent"]
+            self.grid_city[agent_i.position] = ENTITY_IDS["agent"]
 
         self.penalty = penalty
 
@@ -236,10 +236,10 @@ class AmbulanceERS(Env):
 
                 available_positions = np.delete(available_positions, random_index, 0).tolist()
 
-                priority = random.choices(list(REQUEST_PRIORITY.keys()), REQUEST_WEIGHTS)[0]
+                priority = random.choices(list(REQUEST_PRIORITY.keys()), REQUEST_WEIGHT)[0]
             
                 self.request_selected.append(
-                    (step, Request(f"{PRE_IDS['request']}_{step}", request_position, priority))
+                    (step, Request(f"{ENTITY_IDS['request']}_{step}", request_position, priority))
                 )
 
         self.live_requests : list[Request] = []
@@ -265,7 +265,7 @@ class AmbulanceERS(Env):
         self.logger.info("[step=%d] city:\n%s", self.current_step, str(self.grid_city))
     
     def __get_available_positions(self):
-        return np.argwhere(self.grid_city == PRE_IDS["empty"]).tolist()
+        return np.argwhere(self.grid_city == ENTITY_IDS["empty"]).tolist()
 
     def __get_observation_space(self):
         grid_shape = np.array(np.array(self.grid_city.shape) * self.sight, dtype=int)
@@ -358,7 +358,7 @@ class AmbulanceERS(Env):
                 self.pending_requests = self.pending_requests[1:]
 
                 # update request presence in the environment
-                self.grid_city[request.position] = PRE_IDS["request"]
+                self.grid_city[request.position] = ENTITY_IDS["request"]
                 # self.__log_city()
             
         ## Move ambulances
@@ -375,7 +375,7 @@ class AmbulanceERS(Env):
                 self.active_ambulances.remove(ambulance)
                 ambulance.OWNER.retrieve_ambulance(ambulance)
 
-            self.grid_city[ambulance.position] = PRE_IDS["ambulance"]
+            self.grid_city[ambulance.position] = ENTITY_IDS["ambulance"]
 
         self.current_step += 1
 

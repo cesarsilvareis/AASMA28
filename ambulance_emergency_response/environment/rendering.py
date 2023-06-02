@@ -1,15 +1,17 @@
 ###########################################################################
-#             Ambulance Emergency Response Environment Render             #
+#             Ambulance Emergency Response Environment RENDER             #
 ###########################################################################
 
 import os
-import pyglet
+
 import numpy as np
-from pyglet.gl import *
+import pyglet
 from PIL import ImageColor
+from pyglet.gl import *
+
+from ambulance_emergency_response.settings import *
 
 from .environment import AmbulanceERS
-from ambulance_emergency_response.settings import GRID_COLOR, STREET_COLOR
 
 WORLD_PADDING = (10, 10)
 METRIC_BATCH_PROPORTION = .75
@@ -49,17 +51,13 @@ class CityRender(object):
 
         # Setting resource path for pyglet
         actual_dir = os.path.dirname(__file__)
-        pyglet.resource.path = [os.path.join(actual_dir, "images")]
+        pyglet.resource.path = [os.path.join(actual_dir, SRC_FILE)]
         pyglet.resource.reindex()
 
         # Getting resources
-        self.IMAGE_AGENGY = pyglet.resource.image("agency.png")
-        self.IMAGE_AMBULANCE = pyglet.resource.image("ambulance.png")
-        self.IMAGE_REQUEST = {
-            2: pyglet.resource.image("patient_low_priority.png"),
-            1: pyglet.resource.image("patient_middle_priority.png"),
-            0: pyglet.resource.image("patient_high_priority.png"),
-        }
+        self.IMAGE_AGENGY = pyglet.resource.image(AGENCY_IMAGE_SRC)
+        self.IMAGE_AMBULANCE = pyglet.resource.image(AGENCY_AMBULANCE_IMAGE_SRC)
+        self.IMAGE_REQUEST = {p: pyglet.resource.image(REQUEST_IMAGE_SRC[p]) for p in REQUEST_IMAGE_SRC}
 
 
     def close(self):

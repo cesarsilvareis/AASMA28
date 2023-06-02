@@ -1,8 +1,9 @@
-from aasma.agent import Agent
 import numpy as np
 
+from aasma.agent import Agent
 from ambulance_emergency_response.environment.environment import Action, Entity
-from ambulance_emergency_response.settings import ACTION_MEANING
+from ambulance_emergency_response.settings import ERSAction
+
 
 class RandomAgent(Agent):
 
@@ -17,13 +18,13 @@ class RandomAgent(Agent):
         observation = self.observation
         
         if observation.available_ambulances == 0:
-            return Action(Action.noop)
+            return Action(ERSAction.NOOP)
 
         # get random action
         actions = observation.actions
         action = np.random.choice(actions)
 
-        if action.meaning == Action.assist:
+        if action.meaning == ERSAction.ASSIST:
             request = action.request
             self.requests_taken.append(request)
 

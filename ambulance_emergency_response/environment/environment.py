@@ -1,18 +1,19 @@
 ###########################################################################
-#           Ambulance Emergency Response Environment Definition           #
+#           Ambulance Emergency Response Environment DEFINITION           #
 ###########################################################################
 
 import logging
-import numpy as np
 import random
-from ambulance_emergency_response.settings import *
-from collections import namedtuple, defaultdict
-from enum import Enum
-from itertools import product
+from collections import namedtuple
+
+import numpy as np
 from gym import Env, spaces
 from gym.utils import seeding
 from ma_gym.envs.utils.action_space import MultiAgentActionSpace
 from ma_gym.envs.utils.observation_space import MultiAgentObservationSpace
+
+from ambulance_emergency_response.settings import *
+
 
 class Message(object):
 
@@ -27,10 +28,8 @@ class Message(object):
             return f"{self.sender.name} -> {self.request}"
 
 class Action():
-    assist = ACTION_MEANING[0]
-    noop = ACTION_MEANING[1]
 
-    def __init__(self,  meaning: str, request: 'Request'=None):
+    def __init__(self,  meaning: ERSAction, request: 'Request'=None):
         self.request = request
         self.meaning = meaning
         self.message = None
@@ -42,11 +41,11 @@ class Action():
         return f"{self.meaning} {self.request}" if self.request else f"{self.meaning}"
     
     def __repr__(self):
-        return f"{self.meaning} {self.request}" if self.request else f"{self.meaning}"
+        return str(self)
 
-    @staticmethod
-    def get_str_int(str: str) -> int:
-        return [key for key, value in ACTION_MEANING.items() if value == str][0]
+    # @staticmethod
+    # def get_str_int(str: str) -> int:
+    #     return [key for key, value in ACTION_MEANING.items() if value == str][0]
 
 class Entity(object):
 
@@ -72,7 +71,7 @@ class Agency(Entity):
     def __init__(self, name: str, position: tuple[int, int], num_ambulances: int):
         super().__init__(name, position)
 
-        self.ambulances = [Ambulance(f"{PRE_IDS['ambulance']}#{name}_{i}", self) for i in range(num_ambulances)]
+        self.ambulances = [Ambulance(f"{ENTITY_IDS[ERSEntity.AMBULANCE]}#{name}_{i}", self) for i in range(num_ambulances)]
         self.available_ambulances = self.ambulances.copy()
         self.reward = 0
 
@@ -172,7 +171,7 @@ class Ambulance(Entity):
 
 class Request(Entity):
 
-    def __init__(self, name: str, position: tuple[int, int], priority):
+    def __init__(self, name: str, position: tuple[int, int], priority: RequestPriority):
         super().__init__(name, position)
 
         self.priority = priority
@@ -229,15 +228,15 @@ class AmbulanceERS(Env):
         
         self.current_step = 0
 
-        self.grid_city = np.full(np.array(city_size) // BLOCK_SIZE, PRE_IDS["empty"])
+        self.grid_city = np.full(np.array(city_size) // BLOCK_SIZE, ENTITY_IDS[ERSEntity.NONE])
         Entity.GRID_SIZE = self.grid_city.shape
 
         self.agencies : list[Agency] = []
         for i in range(self.N_AGENTS):
             agency_position = tuple(np.minimum(np.array(agent_coords[i]) // BLOCK_SIZE, np.array(self.grid_city.shape) - 1))
-            agent_i = Agency(f"{PRE_IDS['agent']}_" + str(i), agency_position, agent_num_ambulances[i])
+            agent_i = Agency(f"{ENTITY_IDS[ERSEntity.AGENCY]}_" + str(i), agency_position, agent_num_ambulances[i])
             self.agencies.append(agent_i)
-            self.grid_city[agent_i.position] = PRE_IDS["agent"]
+            self.grid_city[agent_i.position] = ENTITY_IDS[ERSEntity.AGENCY]
 
         self.penalty = penalty
 
@@ -258,10 +257,10 @@ class AmbulanceERS(Env):
 
                 available_positions = np.delete(available_positions, random_index, 0).tolist()
 
-                priority = random.choices(list(REQUEST_PRIORITY.keys()), REQUEST_WEIGHTS)[0]
+                priority = random.choices(*zip(*REQUEST_WEIGHT.items()))[0]
             
                 self.request_selected.append(
-                    (step, Request(f"{PRE_IDS['request']}_{step}", request_position, priority))
+                    (step, Request(f"{ENTITY_IDS[ERSEntity.REQUEST]}_{step}", request_position, priority))
                 )
 
         self.live_requests : list[Request] = []
@@ -275,7 +274,7 @@ class AmbulanceERS(Env):
         self.viewer = None
 
         self.sight = sight
-        self.action_space = MultiAgentActionSpace([spaces.Discrete(len(ACTION_MEANING)) for _ in range(num_agents)])
+        self.action_space = MultiAgentActionSpace([spaces.Discrete(ERSAction.count()) for _ in range(num_agents)])
         self.observation_space = MultiAgentObservationSpace([self.__get_observation_space() for _ in range(num_agents)])
 
         ## Metrics
@@ -302,7 +301,7 @@ class AmbulanceERS(Env):
         self.logger.info("[step=%d] city:\n%s", self.current_step, str(self.grid_city))
     
     def __get_available_positions(self):
-        return np.argwhere(self.grid_city == PRE_IDS["empty"]).tolist()
+        return np.argwhere(self.grid_city == ENTITY_IDS[ERSEntity.NONE]).tolist()
     
     def __get_closest_agency(self, request: Request) -> Agency:
         return min(self.agencies, key=lambda agency: np.linalg.norm(np.array(agency.position) - np.array(request.position)))
@@ -317,13 +316,13 @@ class AmbulanceERS(Env):
         return spaces.Box(grid_obs_low, grid_obs_high)
 
     def __get_valid_actions(self, agent: Agency):
-        actions = [Action(Action.noop)]
+        actions = [Action(ERSAction.NOOP)]
 
         if len(agent.ambulances) > 0:
             for request in self.live_requests:
                 # check if this agency is the closest to the request
                 if self.__get_closest_agency(request) == agent:
-                    actions.append(Action(Action.assist, request))
+                    actions.append(Action(ERSAction.ASSIST, request))
 
         return actions
     
@@ -380,9 +379,9 @@ class AmbulanceERS(Env):
             if action.message is not None:
                 self.message_queue.append(action.message)
             match(action.meaning):
-                case Action.noop: # IDLE
+                case ERSAction.NOOP:
                     self.logger.info(f"Agency: {agency.name} idle...")
-                case Action.assist: # ASSIST
+                case ERSAction.ASSIST:
                     request = action.request
                     self.logger.info(f"Agency: {agency.name} assisting request on position: {request.position}...")
                     ambulance = agency.assist(request)
@@ -408,14 +407,14 @@ class AmbulanceERS(Env):
                 self.num_spawned_requests += 1
 
                 # update request presence in the environment
-                self.grid_city[request.position] = PRE_IDS["request"]
+                self.grid_city[request.position] = ENTITY_IDS[ERSEntity.REQUEST]
             
         # Move ambulances
         for ambulance in self.active_ambulances:
-            if (self.grid_city[ambulance.position] == PRE_IDS["ambulance"]):
-                self.grid_city[ambulance.position] = PRE_IDS["empty"]
+            if (self.grid_city[ambulance.position] == ENTITY_IDS[ERSEntity.AMBULANCE]):
+                self.grid_city[ambulance.position] = ENTITY_IDS[ERSEntity.NONE]
             reached_goal = ambulance.advance()
-            self.grid_city[ambulance.position] = PRE_IDS["ambulance"]
+            self.grid_city[ambulance.position] = ENTITY_IDS[ERSEntity.AMBULANCE]
 
             # if reached patient request
             if reached_goal and ambulance.operating and ambulance.request in self.live_requests:
@@ -428,7 +427,7 @@ class AmbulanceERS(Env):
             elif reached_goal and not ambulance.operating:
                 self.active_ambulances.remove(ambulance)
                 ambulance.OWNER.retrieve_ambulance(ambulance)
-                self.grid_city[ambulance.position] = PRE_IDS["agent"]
+                self.grid_city[ambulance.position] = ENTITY_IDS[ERSEntity.AGENCY]
 
         for request in self.live_requests:
             request.time_step()
@@ -443,7 +442,7 @@ class AmbulanceERS(Env):
         if (self.num_taken_requests):
             self.metrics["Response-time"] = self.total_time_alive_requests / self.num_taken_requests
 
-        self.metrics["Ambulance-availability"] = self.total_number_ambulances / (self.current_step + 1)
+        self.metrics["Ambulance-availability"] = self.total_number_ambulances / (self.current_step + 2)
 
 
         self.__log_city()
