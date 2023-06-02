@@ -160,6 +160,10 @@ class Request(Entity):
         super().__init__(name, position)
 
         self.priority = priority
+        self.time_alive = 0
+
+    def time_step(self):
+        self.time_alive += 1
 
     def __str__(self) -> str:
         return f"{self.name} {self.position} {self.priority}"
@@ -261,9 +265,13 @@ class AmbulanceERS(Env):
         ## Metrics
         self.num_taken_requests = 0
         self.num_spawned_requests = 0
+        self.total_time_alive_requests = 0
+        self.total_number_ambulances = 0
 
         self.metrics = {
             "Response-rate": 0.00,
+            "Response-time": 0.00,
+            "Ambulance-availability": 0.00,
         }
 
 
@@ -379,23 +387,31 @@ class AmbulanceERS(Env):
 
             # if reached patient request
             if reached_goal and ambulance.operating and ambulance.request in self.live_requests:
+                self.total_time_alive_requests += ambulance.request.time_alive
+                self.num_taken_requests += 1
                 self.live_requests.remove(ambulance.request)
                 
                 
             # if reached owner agency
             elif reached_goal and not ambulance.operating:
-                if ambulance.request is not None: # success
-                    self.num_taken_requests += 1
-                else: # returned without patient
-                    pass
                 self.active_ambulances.remove(ambulance)
                 ambulance.OWNER.retrieve_ambulance(ambulance)
                 self.grid_city[ambulance.position] = PRE_IDS["agent"]
 
+        for request in self.live_requests:
+            request.time_step()
+
+        for agency in self.agencies:
+            self.total_number_ambulances += len(agency.available_ambulances)
 
         # TODO: Update metrics
         if (self.num_spawned_requests):
             self.metrics["Response-rate"] = self.num_taken_requests / self.num_spawned_requests
+
+        if (self.num_taken_requests):
+            self.metrics["Response-time"] = self.total_time_alive_requests / self.num_taken_requests
+
+        self.metrics["Ambulance-availability"] = self.total_number_ambulances / (self.current_step + 1)
 
 
         self.__log_city()
