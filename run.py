@@ -76,8 +76,8 @@ if __name__ == '__main__':
 
     # 2 - Setup agent teams
     teams = {
-        #"Greedy Agencies": [GreedyAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
-        "Random Agencies": [RandomAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
+        "Greedy Agencies": [GreedyAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
+        # "Random Agencies": [RandomAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
     }
 
     # 3 - Evaluate agent

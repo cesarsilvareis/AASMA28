@@ -175,10 +175,19 @@ class Request(Entity):
         super().__init__(name, position)
 
         self.priority = priority
-        self.time_alive = 0
+        self.time_alive = REQUEST_DURATION_ORDER[priority]
+
 
     def time_step(self):
-        self.time_alive += 1
+        if self.priority == RequestPriority.INVALID:
+            return
+        
+        self.time_alive -= 1
+
+        if self.time_alive is 0:
+            self.priority = REQUEST_DURATION_ORDER.get_next_element(self.priority)
+            self.time_alive = REQUEST_DURATION_ORDER[self.priority]
+
 
     def __str__(self) -> str:
         return f"{self.name} {self.position} {self.priority}"
@@ -187,7 +196,7 @@ class Request(Entity):
         return f"{self.name} {self.position} {self.priority}"
 
     def __eq__(self, other: 'Request'):
-        return self.name == other.name
+        return self.name == other.name and self.priority == other.priority
 
 
 class AmbulanceERS(Env):
@@ -429,8 +438,12 @@ class AmbulanceERS(Env):
                 ambulance.OWNER.retrieve_ambulance(ambulance)
                 self.grid_city[ambulance.position] = ENTITY_IDS[ERSEntity.AGENCY]
 
+        # Update requests' timer
         for request in self.live_requests:
-            request.time_step()
+            if request.priority == RequestPriority.INVALID:
+                self.live_requests.remove(request)
+            else:
+                request.time_step()
 
         for agency in self.agencies:
             self.total_number_ambulances += len(agency.available_ambulances)

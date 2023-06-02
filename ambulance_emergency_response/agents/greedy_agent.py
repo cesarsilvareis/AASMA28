@@ -2,7 +2,7 @@ from aasma.agent import Agent
 import numpy as np
 
 from ambulance_emergency_response.environment.environment import Action, Entity
-from ambulance_emergency_response.settings import ERSAction
+from ambulance_emergency_response.settings import ERSAction, REQUEST_WEIGHT
 
 class GreedyAgent(Agent):
 
@@ -31,7 +31,7 @@ class GreedyAgent(Agent):
         # get all requests that are closer to the self agency than the others agents
         closer_requests_actions = []
         for action in actions:
-            if action.meaning == Action.assist:
+            if action.meaning == ERSAction.ASSIST:
                 request = action.request
                 
                 # find the agency that is closer to the request
@@ -47,7 +47,7 @@ class GreedyAgent(Agent):
                     closer_requests_actions.append(action)
 
         # order the closer_requests list by priority
-        closer_requests_actions.sort(key=lambda action: action.request.priority)
+        closer_requests_actions.sort(key=lambda action: REQUEST_WEIGHT[action.request.priority], reverse=True)
 
         # make sure request is not already taken
         for i in range(len(closer_requests_actions)):
