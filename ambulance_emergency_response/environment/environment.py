@@ -102,6 +102,7 @@ class Ambulance(Entity):
         self.objective = None
         self.operating = False
         self.ongoing_path = None
+        self.coming_back = False
         self.request : 'Request' = None
 
     def take(self, goal, request: 'Request'=None):
@@ -115,17 +116,26 @@ class Ambulance(Entity):
             self.objective = goal
     
     def advance(self) -> bool:
-        if self.operating == False:
+        if not self.operating:
             return False
+        
+        if self.request.priority == RequestPriority.INVALID and not self.coming_back:
+            if self.position == self.OWNER.position:
+                self.operating = False
+                return True
+            self.coming_back = True
+            self.take(self.OWNER.position)
         
         next_position = self.ongoing_path.pop(0)
         self.position = next_position
         if self.position == self.objective:
             if self.position == self.OWNER.position:
                 self.operating = False
+                self.coming_back = False
                 return True
             else:
                 self.take(self.OWNER.position)
+                self.coming_back = True
                 return True
         return False
     
@@ -418,6 +428,11 @@ class AmbulanceERS(Env):
                 # update request presence in the environment
                 self.grid_city[request.position] = ENTITY_IDS[ERSEntity.REQUEST]
             
+        # Checks invalid requests firstly
+        for request in self.live_requests:
+            if request.priority == RequestPriority.INVALID:
+                self.live_requests.remove(request)
+
         # Move ambulances
         for ambulance in self.active_ambulances:
             if (self.grid_city[ambulance.position] == ENTITY_IDS[ERSEntity.AMBULANCE]):
@@ -440,10 +455,7 @@ class AmbulanceERS(Env):
 
         # Update requests' timer
         for request in self.live_requests:
-            if request.priority == RequestPriority.INVALID:
-                self.live_requests.remove(request)
-            else:
-                request.time_step()
+            request.time_step()
 
         for agency in self.agencies:
             self.total_number_ambulances += len(agency.available_ambulances)
