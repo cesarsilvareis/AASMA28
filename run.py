@@ -9,6 +9,7 @@ from aasma import Agent
 from aasma.utils import compare_results
 from ambulance_emergency_response.environment import AmbulanceERS
 from ambulance_emergency_response.agents import RandomAgent, GreedyAgent
+from ambulance_emergency_response.settings import OCCUPANCY_MAP_1
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(name)s.%(funcName)s +%(lineno)s: %(levelname)-8s: %(message)s',)
@@ -71,7 +72,8 @@ if __name__ == '__main__':
         num_agents=4,
         agent_coords=[(220, 40), (40, 220), (220, 440), (440, 220)],
         agent_num_ambulances=[2, 2, 2, 2],
-        request_max_generation_steps=200
+        request_max_generation_steps=50,
+        occupancy_map=OCCUPANCY_MAP_1
     )
 
     # 2 - Setup agent teams

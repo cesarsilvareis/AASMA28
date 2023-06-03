@@ -231,6 +231,7 @@ class AmbulanceERS(Env):
                  num_agents: int = 1, 
                  agent_coords: list[tuple[int, int]] = [(495, 495)],
                  agent_num_ambulances: list[int] = [2],
+                 occupancy_map: list[list[int]] | None=None,
                  request_max_generation_steps: int = 100,
                  penalty: float = 0.0,
                  sight: float = 1.0, # [0.0, 1.0]
@@ -250,6 +251,13 @@ class AmbulanceERS(Env):
         self.grid_city = np.full(np.array(city_size) // BLOCK_SIZE, ENTITY_IDS[ERSEntity.NONE])
         Entity.GRID_SIZE = self.grid_city.shape
 
+        if occupancy_map is None:
+            self.OCCUPANCY_MAP = np.random.uniform(0, 1 / (self.grid_city.shape[0] * self.grid_city.shape[1]), size=self.grid_city.shape)
+        else:
+            if occupancy_map.shape != self.grid_city.shape:
+                raise ValueError("Invalid occupancy map layout size. Must be %", self.grid_city.shape)
+            self.OCCUPANCY_MAP = occupancy_map
+
         self.agencies : list[Agency] = []
         for i in range(self.N_AGENTS):
             agency_position = tuple(np.minimum(np.array(agent_coords[i]) // BLOCK_SIZE, np.array(self.grid_city.shape) - 1))
@@ -261,33 +269,12 @@ class AmbulanceERS(Env):
 
         self.request_max_generation_steps = request_max_generation_steps
         
-        self.request_selected = []    # a priori random selection
-
-        available_positions = self.__get_available_positions()
-        for step in range(self.request_max_generation_steps):
-            if len(available_positions) == 0:
-                break
-            
-            random_num = random.randint(1, self.request_max_generation_steps)
-
-            if random_num < REQUEST_CHANCE:
-                random_index = np.random.choice(len(available_positions))
-                request_position = tuple(available_positions[random_index])
-
-                available_positions = np.delete(available_positions, random_index, 0).tolist()
-
-                priority = random.choices(*zip(*REQUEST_WEIGHT.items()))[0]
-            
-                self.request_selected.append(
-                    (step, Request(f"{ENTITY_IDS[ERSEntity.REQUEST]}_{step}", request_position, priority))
-                )
-
         self.live_requests : list[Request] = []
-        # create a copy of selected request positions to be considered further on
-        self.pending_requests = [r for r in self.request_selected]
+        self.num_spawned_requests = 0
 
         self.active_ambulances : list[Ambulance] = [] # ambulance movement
         self.finishing_phase = False
+        self.end = False
 
         self.rendering_initialized = False
         self.viewer = None
@@ -298,7 +285,7 @@ class AmbulanceERS(Env):
 
         ## Metrics
         self.num_taken_requests = 0
-        self.num_spawned_requests = 0
+        self.finalized_requests = 0
         self.total_time_alive_requests = 0
         self.total_number_ambulances = sum([len(agency.ambulances) for agency in self.agencies])
 
@@ -308,7 +295,7 @@ class AmbulanceERS(Env):
             "Ambulance-availability": float(self.total_number_ambulances),
         }
 
-        # message passing
+        ## Message passing
         self.message_queue = []
 
 
@@ -319,9 +306,10 @@ class AmbulanceERS(Env):
     def __log_city(self):
         self.logger.info("[step=%d] city:\n%s", self.current_step, str(self.grid_city))
     
-    def __get_available_positions(self):
-        return np.argwhere(self.grid_city == ENTITY_IDS[ERSEntity.NONE]).tolist()
-    
+    def __get_available_positions(self) -> list[tuple[int, int]]:
+        position_list = np.argwhere(self.grid_city == ENTITY_IDS[ERSEntity.NONE]).tolist()
+        return list(map(tuple, position_list))
+
     def __get_closest_agency(self, request: Request) -> Agency:
         return min(self.agencies, key=lambda agency: np.linalg.norm(np.array(agency.position) - np.array(request.position)))
 
@@ -339,6 +327,8 @@ class AmbulanceERS(Env):
 
         if len(agent.ambulances) > 0:
             for request in self.live_requests:
+                if request.priority == RequestPriority.INVALID:
+                    continue
                 # check if this agency is the closest to the request
                 if self.__get_closest_agency(request) == agent:
                     actions.append(Action(ERSAction.ASSIST, request))
@@ -370,19 +360,33 @@ class AmbulanceERS(Env):
         
         nobs = { agency.name: self.__make_obs(agency) for agency in self.agencies}
         nreward = [get_agency_reward(observation=o) for o in nobs.values()]
-        terminal = self.finishing_phase
+        terminal = self.end
         ninfo = [{"observation": o} for o in nobs]
         
         return nobs, nreward, terminal, ninfo
 
     def reset(self):
         self.current_step = 0
-        self.pending_requests = [r for r in self.request_selected]
         self.live_requests.clear()
+        self.num_spawned_requests = 0
         self.finishing_phase = False
+        self.end = False
 
         for agency in self.agencies:
             agency.reset() # this also resets ambulances
+        
+        self.active_ambulances.clear()
+
+        self.num_taken_requests = 0
+        self.finalized_requests = 0
+        self.total_time_alive_requests = 0
+        self.total_number_ambulances = sum([len(agency.ambulances) for agency in self.agencies])
+
+        self.metrics = {
+            "Response-rate": 1.00,
+            "Response-time": 0.00,
+            "Ambulance-availability": float(self.total_number_ambulances),
+        }
 
         self.render()
 
@@ -409,29 +413,34 @@ class AmbulanceERS(Env):
                     # ...
 
         ##   Dynamic things
-        ## Request generation
+
+        # Request generation
         if not self.finishing_phase:
-            if self.current_step > self.request_max_generation_steps:
-                # At this stage no more request will be generated
-                # Agents finish the remaining requests in the city
-                self.logger.info("Finishing phase...")
+            if self.num_spawned_requests >= self.request_max_generation_steps:
                 self.finishing_phase = True
+                self.logger.info("Finishing phase...")
+            
+            else:
+                for valid_position in self.__get_available_positions():
+                    if random.random() >= self.OCCUPANCY_MAP[valid_position[0]][valid_position[1]]:
+                        continue
 
-            if len(self.pending_requests) > 0 and self.pending_requests[0][0] == self.current_step:
-                request = self.pending_requests[0][1]
-                self.live_requests.append(request)
-
-                self.pending_requests = self.pending_requests[1:]
-
-                self.num_spawned_requests += 1
-
-                # update request presence in the environment
-                self.grid_city[request.position] = ENTITY_IDS[ERSEntity.REQUEST]
+                    # generate new request
+                    request = Request(
+                        f"{ENTITY_IDS[ERSEntity.REQUEST]}_{self.current_step}_{valid_position}",
+                        valid_position,
+                        random.choices(*zip(*REQUEST_WEIGHT.items()))[0]
+                    )
+                    self.live_requests.append(request)
+                    self.num_spawned_requests += 1
+                    self.grid_city[request.position] = ENTITY_IDS[ERSEntity.REQUEST]
             
         # Checks invalid requests firstly
         for request in self.live_requests:
             if request.priority == RequestPriority.INVALID:
                 self.live_requests.remove(request)
+                self.finalized_requests += 1
+                self.grid_city[request.position] = ENTITY_IDS[ERSEntity.NONE]
 
         # Move ambulances
         for ambulance in self.active_ambulances:
@@ -445,7 +454,7 @@ class AmbulanceERS(Env):
                 self.total_time_alive_requests += ambulance.request.time_alive
                 self.num_taken_requests += 1
                 self.live_requests.remove(ambulance.request)
-                
+                self.finalized_requests += 1
                 
             # if reached owner agency
             elif reached_goal and not ambulance.operating:
@@ -461,8 +470,8 @@ class AmbulanceERS(Env):
             self.total_number_ambulances += len(agency.available_ambulances)
 
         # TODO: Update metrics
-        if (self.num_spawned_requests):
-            self.metrics["Response-rate"] = self.num_taken_requests / self.num_spawned_requests
+        if (self.finalized_requests):
+            self.metrics["Response-rate"] = self.num_taken_requests / self.finalized_requests
 
         if (self.num_taken_requests):
             self.metrics["Response-time"] = self.total_time_alive_requests / self.num_taken_requests
@@ -470,8 +479,11 @@ class AmbulanceERS(Env):
         self.metrics["Ambulance-availability"] = self.total_number_ambulances / (self.current_step + 2)
 
 
-        self.__log_city()
+        # self.__log_city()
         self.current_step += 1
+
+        if self.finishing_phase and self.live_requests == self.active_ambulances == []:
+            self.end = True
 
         # TODO: change second argument (reward)
         return self.__make_gym_obs()
