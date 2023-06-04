@@ -33,6 +33,9 @@ class GreedyAgent(Agent):
         for action in actions:
             if action.meaning == ERSAction.ASSIST:
                 request = action.request
+
+                if Entity.distance_between(self_agency.position, request.position) >= request.elapse_time:
+                    continue
                 
                 # find the agency that is closer to the request
                 closer_agency = self_agency
@@ -55,10 +58,5 @@ class GreedyAgent(Agent):
             if action.request not in self.requests_taken:
                 self.requests_taken.append(action.request)
                 return action
-            
-        print("ACTIONS:")
-        print(actions)
-        print("REQUESTS TAKEN:")
-        print(self.requests_taken)
 
         return Action(ERSAction.NOOP)

@@ -114,7 +114,7 @@ def plot_confidence_bar(names, means, std_devs, N, title, x_label, y_label, conf
     plt.close()
 
 
-def compare_results(results, confidence=0.95, title="Agents Comparison", metric="Steps Per Episode", colors=None):
+def compare_results(results, confidence=0.95, title="Agents Comparison", metric="Response-rate", colors=None):
 
     """Displays a bar plot comparing the performance of different agents/teams.
 
@@ -133,6 +133,8 @@ def compare_results(results, confidence=0.95, title="Agents Comparison", metric=
             A sequence of colors (one for each agent/team)
 
         """
+
+    results = results[metric]
 
     names = list(results.keys())
     means = [result.mean() for result in results.values()]

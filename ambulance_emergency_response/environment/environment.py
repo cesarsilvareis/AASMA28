@@ -17,7 +17,7 @@ from ambulance_emergency_response.settings import *
 
 class Message(object):
 
-        def __init__(self, request: 'Request', sender: 'Agency'):
+        def __init__(self, request: 'Request', sender: str):
             self.request = request
             self.sender = sender
     
@@ -36,6 +36,7 @@ class Action():
 
     def attach_message(self, message: Message):
         self.message = message
+        return self
 
     def __str__(self):
         return f"{self.meaning} {self.request}" if self.request else f"{self.meaning}"
@@ -176,6 +177,7 @@ class Ambulance(Entity):
         self.operating = False
         self.ongoing_path = None
         self.request = None
+        self.coming_back = False
         self.position = self.OWNER.position
 
 
@@ -186,15 +188,20 @@ class Request(Entity):
 
         self.priority = priority
         self.time_alive = REQUEST_DURATION_ORDER[priority]
-
+        self.elapse_time = 0
+        priority_copy = priority
+        while (priority_copy != RequestPriority.INVALID):
+            self.elapse_time += REQUEST_DURATION_ORDER[priority_copy]
+            priority_copy = REQUEST_DURATION_ORDER.get_next_element(priority_copy)
 
     def time_step(self):
         if self.priority == RequestPriority.INVALID:
             return
         
         self.time_alive -= 1
+        self.elapse_time -= 1
 
-        if self.time_alive is 0:
+        if self.time_alive == 0:
             self.priority = REQUEST_DURATION_ORDER.get_next_element(self.priority)
             self.time_alive = REQUEST_DURATION_ORDER[self.priority]
 
@@ -219,7 +226,7 @@ class AmbulanceERS(Env):
 
     Observation = namedtuple(
         "Observation",
-        ["field", "actions", "agencies", "available_ambulances", "current_step", "messages",],
+        ["field", "actions", "agencies", "available_ambulances", "total_ambulances", "current_step", "messages",],
     )
     AgentObservation = namedtuple(
         "PlayerObservation", 
@@ -325,13 +332,12 @@ class AmbulanceERS(Env):
     def __get_valid_actions(self, agent: Agency):
         actions = [Action(ERSAction.NOOP)]
 
-        if len(agent.ambulances) > 0:
-            for request in self.live_requests:
-                if request.priority == RequestPriority.INVALID:
-                    continue
-                # check if this agency is the closest to the request
-                if self.__get_closest_agency(request) == agent:
-                    actions.append(Action(ERSAction.ASSIST, request))
+        for request in self.live_requests:
+            if request.priority == RequestPriority.INVALID:
+                continue
+            # check if this agency is the closest to the request
+            if self.__get_closest_agency(request) == agent:
+                actions.append(Action(ERSAction.ASSIST, request))
 
         return actions
     
@@ -348,6 +354,7 @@ class AmbulanceERS(Env):
                 reward=agency.reward, # FIXME: rewards like this??
             ) for agency in self.agencies],
             available_ambulances=len(agent.available_ambulances),
+            total_ambulances=len(agent.ambulances),
             current_step=self.current_step,
             messages=self.__get_messages(agent),
         )
@@ -387,9 +394,6 @@ class AmbulanceERS(Env):
             "Response-time": 0.00,
             "Ambulance-availability": float(self.total_number_ambulances),
         }
-
-        self.render()
-
         
         return { agency.name: self.__make_obs(agency) for agency in self.agencies}
 
