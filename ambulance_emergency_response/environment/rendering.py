@@ -169,6 +169,12 @@ class CityRender(object):
 
         x, y = self.px + self.city_size[0] + self.px, self.py
 
+        def create_metric_label(reference: list, batch: pyglet.graphics.Batch, sep: int=0, **kwargs):
+            self.__create_label(reference, batch, 
+                                x=x + self.px, y=self.world_height - y - ((sep + 1) * METRIC_SEP_SIZE),
+                                font_size=METRIC_FONT_SIZE, color=METRIC_TEXT_COLOR,
+                                **kwargs)
+
         # draws background
         square = pyglet.shapes.Rectangle(x, y, self.world_width - x + self.px, 
                                 self.world_height, color=METRIC_BG_COLOR, batch=batch)
@@ -183,13 +189,23 @@ class CityRender(object):
                 font_size=int(1.25 * METRIC_FONT_SIZE), bold=True, color=METRIC_TEXT_COLOR, batch=batch
         ))
 
-        for i, (metric, value) in enumerate(env.metrics.items()):
-            metrics_references.append(pyglet.text.Label(
-                text="%s: %.3f" %(metric, value), x=x + self.px, y = self.world_height - y - ((i + 1) * METRIC_SEP_SIZE), 
-                font_size=METRIC_FONT_SIZE, color=METRIC_TEXT_COLOR, batch=batch
-            ))
-        
+        sep = 0
+        for (metric, value) in env.metrics.items():
+            if isinstance(value, dict): # measure by agent
+                create_metric_label(metrics_references, batch, sep, text="%s:" %metric)
+                sep += 1
+                for agent in value:
+                    create_metric_label(metrics_references, batch, sep, text=".%s: %.3f" %(agent, value[agent]))
+                    sep += 1
+            else:
+                print(metric,value)
+                create_metric_label(metrics_references, batch, sep, text="%s: %.3f" %(metric, value))
+                sep += 1
+            
         batch.draw()
+
+    def __create_label(self, reference: list, batch: pyglet.graphics.Batch, **kwargs):
+        reference.append(pyglet.text.Label(batch=batch, **kwargs))
 
 
     def render(self, env: AmbulanceERS, return_rgb_array: bool = False):

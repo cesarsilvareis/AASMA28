@@ -9,7 +9,7 @@ from aasma import Agent
 from aasma.utils import compare_results, print_results
 from ambulance_emergency_response.environment import AmbulanceERS
 from ambulance_emergency_response.agents import RandomAgent, GreedyAgent, ConventionAgent, RoleAgent
-from ambulance_emergency_response.settings import DEBUG, SEED, OCCUPANCY_MAP_2
+from ambulance_emergency_response.settings import DEBUG, SEED, EXPERIMENT_FOLDER, OCCUPANCY_MAP_1
 
 if DEBUG:
     logging.basicConfig(level=logging.INFO,
@@ -39,16 +39,8 @@ def run_multiple_agents(environment: Env, agents: list[Agent], n_episodes: int, 
                 agent.see(observations[agent.name])
                 agent_action = agent.action()
                 agent_actions.append(agent_action)
-                # print(f"Agent {i} with action: {agent_action}")
 
             next_observations, nreward, terminal, ninfo = environment.step(agent_actions)
-            
-            # for agent, observation, reward, info in zip(agents, observations, nreward, ninfo):
-            #     print(f"Agent {agent.name} - Timestep {steps}")
-            #     print(f"\tObservation: {observation.actions}")
-            #     # print(f"\tAction: {environment.get_action_meanings()[agent_action]}")
-            #     # print(f"\tInfo: {info}")
-            #     print(f"\tReward: {reward}\n")
 
             if render:
                 environment.render()
@@ -82,7 +74,7 @@ if __name__ == '__main__':
         agent_coords=[(220, 40), (40, 220), (220, 440), (440, 220)],
         agent_num_ambulances=[2, 2, 2, 2],
         request_max_generation_steps=50,
-        occupancy_map=OCCUPANCY_MAP_2,
+        occupancy_map=OCCUPANCY_MAP_1,
         show_density_map=True
     )
 
@@ -107,7 +99,7 @@ if __name__ == '__main__':
         "Resource-utilization": {},
     }
     for team, agents in teams.items():
-        result = run_multiple_agents(environment, agents, 5, render=True)
+        result = run_multiple_agents(environment, agents, 5, render=False)
         for metric in results.keys():
             results[metric][team] = result[metric]
 
@@ -115,10 +107,6 @@ if __name__ == '__main__':
     print_results(results=results)
 
     for metric in results.keys():
-        compare_results(results=results, title="Comparing the performance of all types of teams", metric=metric, colors=["orange", "blue", "green", "red"])
-
-    # dict {
-    #        metric: team=dict {
-    #                            team_name: agent: 
-    #                     }
-    # }
+        compare_results(results=results, title="Comparing the performance of all types of teams", 
+                        metric=metric, colors=["orange", "blue", "green", "red"], 
+                        filename=EXPERIMENT_FOLDER + "%s.png" %metric)

@@ -44,10 +44,6 @@ class Action():
     def __repr__(self):
         return str(self)
 
-    # @staticmethod
-    # def get_str_int(str: str) -> int:
-    #     return [key for key, value in ACTION_MEANING.items() if value == str][0]
-
 class Entity(object):
 
     GRID_SIZE : tuple[int, int]
@@ -129,9 +125,7 @@ class Ambulance(Entity):
                 return True
             self.coming_back = True
             self.take(self.OWNER.position)
-        
-        if len(self.ongoing_path) == 0:
-            print("DEBUG:", self.position, self.OWNER.position, self.request.position, self.objective)
+
         next_position = self.ongoing_path.pop(0)
         self.position = next_position
         if self.position == self.objective:

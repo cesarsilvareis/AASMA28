@@ -36,6 +36,7 @@ DEBUG           = False
 SEED            = 28
 SRC_FILE        = "images/"
 ICON_IMAGE_SRC  = "icon.png"
+EXPERIMENT_FOLDER = "experiments/"
 
 #################################
 #           WORLD/ENV           #

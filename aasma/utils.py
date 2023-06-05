@@ -110,12 +110,11 @@ def plot_confidence_bar(names, means, std_devs, N, title, x_label, y_label, conf
     if filename is not None:
         plt.savefig(filename)
     if show:
-        plt.title(title)
         plt.show()
     plt.close()
 
 
-def compare_results(results, confidence=0.95, title="Agents Comparison", metric="Response-rate", colors=None):
+def compare_results(results, confidence=0.95, title="Agents Comparison", metric="Response-rate", colors=None, filename=None):
 
     """Displays a bar plot comparing the performance of different agents/teams.
 
@@ -150,7 +149,8 @@ def compare_results(results, confidence=0.95, title="Agents Comparison", metric=
             N=N,
             title=title,
             x_label="", y_label=f"Avg. {metric}",
-            confidence=confidence, show=True, colors=colors
+            confidence=confidence, show=True, colors=colors,
+            filename=filename
         )
     else:
         import pandas as pd
@@ -169,7 +169,10 @@ def compare_results(results, confidence=0.95, title="Agents Comparison", metric=
         ax.set_xlabel("")
         ax.set_ylabel(f"Avg. {metric}")
         plt.tight_layout()
+        if filename is not None:
+            plt.savefig(filename)
         plt.show()
+        plt.close()
 
 def print_results(results):
     teams = [team for team in list(results.values())[0]]
