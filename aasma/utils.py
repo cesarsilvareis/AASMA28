@@ -110,6 +110,7 @@ def plot_confidence_bar(names, means, std_devs, N, title, x_label, y_label, conf
     if filename is not None:
         plt.savefig(filename)
     if show:
+        plt.title(title)
         plt.show()
     plt.close()
 
@@ -121,7 +122,7 @@ def compare_results(results, confidence=0.95, title="Agents Comparison", metric=
         Parameters
         ----------
 
-        results: dict
+        results: dict[str, dict[str, np.ndarray]]
             A dictionary where keys are the names and the values sequences of trials
         confidence: float
             The confidence level for the confidence interval
@@ -135,21 +136,52 @@ def compare_results(results, confidence=0.95, title="Agents Comparison", metric=
         """
 
     results = results[metric]
+    teams = list(results.keys())
+    if isinstance(list(results.values())[0], np.ndarray):
 
-    names = list(results.keys())
-    means = [result.mean() for result in results.values()]
-    stds = [result.std() for result in results.values()]
-    N = [result.size for result in results.values()]
+        means = [result.mean() for result in results.values()]
+        stds = [result.std() for result in results.values()]
+        N = [result.size for result in results.values()]
 
-    plot_confidence_bar(
-        names=names,
-        means=means,
-        std_devs=stds,
-        N=N,
-        title=title,
-        x_label="", y_label=f"Avg. {metric}",
-        confidence=confidence, show=True, colors=colors
-    )
+        plot_confidence_bar(
+            names=teams,
+            means=means,
+            std_devs=stds,
+            N=N,
+            title=title,
+            x_label="", y_label=f"Avg. {metric}",
+            confidence=confidence, show=True, colors=colors
+        )
+    else:
+        import pandas as pd
 
+        agents = [agent for agent in list(results.values())[0].keys()]
 
+        agents_data = { agent: [] for agent in agents }
 
+        for agent in agents:
+            for team in teams:
+                agents_data[agent].append(results[team][agent].mean())
+
+        # create a dataframe
+        df = pd.DataFrame(agents_data, index=teams)
+        ax = df.plot.bar(rot=0, figsize=(12, 5), title=title)
+        ax.set_xlabel("")
+        ax.set_ylabel(f"Avg. {metric}")
+        plt.tight_layout()
+        plt.show()
+
+def print_results(results):
+    teams = [team for team in list(results.values())[0]]
+    metrics = list(results.keys())
+
+    for team in teams:
+        print("%s Team:" %team)
+        for metric in metrics:
+            metric_results = results[metric][team]
+            if isinstance(metric_results, dict):
+                print("\t%s:" %metric)
+                for agent in metric_results.keys():
+                    print("\t\t%s: %.3f" %(agent, metric_results[agent].mean()))
+            else: # ndarray
+                print("\t%s: %.3f" %(metric, metric_results.mean()))

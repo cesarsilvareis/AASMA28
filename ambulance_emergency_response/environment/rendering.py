@@ -55,6 +55,7 @@ class CityRender(object):
         pyglet.resource.reindex()
 
         # Getting resources
+        self.display_window.set_icon(pyglet.resource.image(ICON_IMAGE_SRC))
         self.IMAGE_AGENGY = pyglet.resource.image(AGENCY_IMAGE_SRC)
         self.IMAGE_AMBULANCE = pyglet.resource.image(AGENCY_AMBULANCE_IMAGE_SRC)
         self.IMAGE_REQUEST = {p: pyglet.resource.image(REQUEST_IMAGE_SRC[p]) for p in REQUEST_IMAGE_SRC}

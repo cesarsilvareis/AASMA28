@@ -6,10 +6,10 @@ import numpy as np
 from gym import Env
 
 from aasma import Agent
-from aasma.utils import compare_results
+from aasma.utils import compare_results, print_results
 from ambulance_emergency_response.environment import AmbulanceERS
 from ambulance_emergency_response.agents import RandomAgent, GreedyAgent, ConventionAgent, RoleAgent
-from ambulance_emergency_response.settings import DEBUG, OCCUPANCY_MAP_1
+from ambulance_emergency_response.settings import DEBUG, SEED, OCCUPANCY_MAP_2
 
 if DEBUG:
     logging.basicConfig(level=logging.INFO,
@@ -21,6 +21,7 @@ def run_multiple_agents(environment: Env, agents: list[Agent], n_episodes: int, 
         "Response-rate": np.zeros(n_episodes),
         "Response-time": np.zeros(n_episodes),
         "Ambulance-availability": np.zeros(n_episodes),
+        "Resource-utilization": { agent.name : np.zeros(n_episodes) for agent in agents },
     }
     for episode in range(n_episodes):
 
@@ -60,6 +61,9 @@ def run_multiple_agents(environment: Env, agents: list[Agent], n_episodes: int, 
         results["Response-time"][episode] = environment.metrics["Response-time"]
         results["Ambulance-availability"][episode] = environment.metrics["Ambulance-availability"]
 
+        for agent in agents:
+            results["Resource-utilization"][agent.name][episode] = environment.metrics["Resource-utilization"][agent.name]
+
     environment.close()
 
     return results
@@ -78,8 +82,12 @@ if __name__ == '__main__':
         agent_coords=[(220, 40), (40, 220), (220, 440), (440, 220)],
         agent_num_ambulances=[2, 2, 2, 2],
         request_max_generation_steps=50,
-        occupancy_map=OCCUPANCY_MAP_1
+        occupancy_map=OCCUPANCY_MAP_2,
+        show_density_map=True
     )
+
+    # sets seed
+    # environment.seed(SEED)
 
     convention = [agency.name for agency in environment.agencies]
 
@@ -96,16 +104,21 @@ if __name__ == '__main__':
         "Response-rate": {},
         "Response-time": {},
         "Ambulance-availability": {},
+        "Resource-utilization": {},
     }
     for team, agents in teams.items():
-        result = run_multiple_agents(environment, agents, 50, render=False)
-        results["Response-rate"][team] = result["Response-rate"]
-        results["Response-time"][team] = result["Response-time"]
-        results["Ambulance-availability"][team] = result["Ambulance-availability"]
+        result = run_multiple_agents(environment, agents, 5, render=True)
+        for metric in results.keys():
+            results[metric][team] = result[metric]
 
     # 4 - Compare results
-    print(results)
-    compare_results(results=results, title="Comparing the performance of all types of teams", metric="Response-rate", colors=["orange", "blue", "green", "red"])
-    compare_results(results=results, title="Comparing the performance of all types of teams", metric="Response-time", colors=["orange", "blue", "green", "red"])
-    compare_results(results=results, title="Comparing the performance of all types of teams", metric="Ambulance-availability", colors=["orange", "blue", "green", "red"])
+    print_results(results=results)
 
+    for metric in results.keys():
+        compare_results(results=results, title="Comparing the performance of all types of teams", metric=metric, colors=["orange", "blue", "green", "red"])
+
+    # dict {
+    #        metric: team=dict {
+    #                            team_name: agent: 
+    #                     }
+    # }

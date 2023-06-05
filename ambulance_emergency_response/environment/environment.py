@@ -90,6 +90,7 @@ class Agency(Entity):
         self.available_ambulances.append(ambulance)
 
     def reset(self):
+        self.num_assistances_made = 0
         self.available_ambulances = self.ambulances.copy()
         for ambulance in self.ambulances:
             ambulance.reset()
@@ -117,6 +118,8 @@ class Ambulance(Entity):
             self.objective = goal
     
     def advance(self) -> bool:
+        if len(self.ongoing_path) == 0:
+            return False
         if not self.operating:
             return False
         
@@ -244,6 +247,7 @@ class AmbulanceERS(Env):
                  request_max_generation_steps: int = 100,
                  penalty: float = 0.0,
                  sight: float = 1.0, # [0.0, 1.0]
+                 show_density_map: bool=False
         ):
 
         self.N_AGENTS = num_agents
@@ -266,6 +270,10 @@ class AmbulanceERS(Env):
             if occupancy_map.shape != self.grid_city.shape:
                 raise ValueError("Invalid occupancy map layout size. Must be %", self.grid_city.shape)
             self.OCCUPANCY_MAP = occupancy_map
+        
+        if show_density_map:
+            self.__plot_occupancy_map()
+        
 
         self.agencies : list[Agency] = []
         for i in range(self.N_AGENTS):
@@ -302,6 +310,7 @@ class AmbulanceERS(Env):
             "Response-rate": 0.00,
             "Response-time": 0.00,
             "Ambulance-availability": float(self.total_number_ambulances),
+            "Resource-utilization": { agency.name: 0.00 for agency in self.agencies }
         }
 
         ## Message passing
@@ -312,6 +321,21 @@ class AmbulanceERS(Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
        
+    def __plot_occupancy_map(self):
+        from matplotlib import pyplot as plt, cm, colors
+        plt.figure(figsize=tuple(np.array(self.OCCUPANCY_MAP.shape) // 2))
+
+        color_list = ['green', 'yellow', 'red']
+        cmap = colors.LinearSegmentedColormap.from_list('custom_cmap', colors=color_list)
+
+        plt.title('Gradient map')
+        plt.imshow(self.OCCUPANCY_MAP, origin='upper', interpolation="none", cmap=cmap)
+        plt.xticks(np.arange(self.OCCUPANCY_MAP.shape[0]), np.arange(self.OCCUPANCY_MAP.shape[0]))  # need to set the ticks manually
+        plt.yticks(np.arange(self.OCCUPANCY_MAP.shape[1]), np.arange(self.OCCUPANCY_MAP.shape[1] - 1, -1, -1))
+        plt.colorbar(label="Request spawn frequency")
+        plt.show()
+
+
     def __log_city(self):
         self.logger.info("[step=%d] city:\n%s", self.current_step, str(self.grid_city))
     
@@ -391,6 +415,7 @@ class AmbulanceERS(Env):
             "Response-rate": 1.00,
             "Response-time": 0.00,
             "Ambulance-availability": float(self.total_number_ambulances),
+            "Resource-utilization": { agency.name: 0.00 for agency in self.agencies }
         }
         
         return { agency.name: self.__make_obs(agency) for agency in self.agencies}
@@ -455,6 +480,7 @@ class AmbulanceERS(Env):
             if reached_goal and ambulance.operating and ambulance.request in self.live_requests:
                 self.total_time_alive_requests += ambulance.request.time_alive
                 self.num_taken_requests += 1
+                ambulance.OWNER.num_assistances_made += 1
                 self.live_requests.remove(ambulance.request)
                 self.finalized_requests += 1
                 
@@ -477,6 +503,8 @@ class AmbulanceERS(Env):
 
         if (self.num_taken_requests):
             self.metrics["Response-time"] = self.total_time_alive_requests / self.num_taken_requests
+            for agency in self.agencies:
+                self.metrics["Resource-utilization"][agency.name] = agency.num_assistances_made / self.num_taken_requests
 
         self.metrics["Ambulance-availability"] = self.total_number_ambulances / (self.current_step + 2)
 
