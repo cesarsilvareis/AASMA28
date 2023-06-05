@@ -4,12 +4,11 @@ import numpy as np
 from ambulance_emergency_response.environment.environment import Action, Entity, Agency, Request, Message
 from ambulance_emergency_response.settings import ERSAction, REQUEST_WEIGHT
 
-class ConventionAgent(Agent):
+class RoleAgent(Agent):
 
     # social convention is a list of angeny names
-    def __init__(self, agency_name, n_agents, social_convention):
-        super(ConventionAgent, self).__init__(agency_name)
-        self.social_convention = social_convention
+    def __init__(self, agency_name, n_agents):
+        super(RoleAgent, self).__init__(agency_name)
         self.requests_taken = []
         self.requests_sent = []
 
@@ -21,14 +20,8 @@ class ConventionAgent(Agent):
         agencies = observation.agencies
         actions = observation.actions
         messages = observation.messages
-        agent_order = self.social_convention
 
         message = None
-
-        # find agency name next to own name in social convention
-        self_index = agent_order.index(self.name)
-        next_index = (self_index + 1) % len(agent_order)
-        next_agency_name = agent_order[next_index]
 
         # find the self agency
         self_agency = None
@@ -42,7 +35,7 @@ class ConventionAgent(Agent):
         for message in messages:
             if Entity.distance_between(self_agency.position, message.request.position) >= message.request.elapse_time:
                 continue
-            if message.sender == next_agency_name and message.request not in self.requests_taken:
+            if message.request not in self.requests_taken and self.__has_better_potential(observation, message.request):
                 next_agency_requests.append(message.request)
 
         # get all requests that are closer to the self agency than the others agents
@@ -89,3 +82,24 @@ class ConventionAgent(Agent):
                 return action.attach_message(message)
 
         return Action(ERSAction.NOOP).attach_message(message)
+    
+
+
+    def __has_better_potential(self, observation, request):
+        self_potential = None
+        for agency in observation.agencies:
+            if agency.name == self.name:
+                self_potential = self.__potencial(agency, request)
+                break
+
+        for agency in observation.agencies:
+            if agency.name == self.name:
+                continue
+            if self_potential < self.__potencial(agency, request):
+                return False
+            
+        return True
+    
+    @staticmethod
+    def __potencial(agency: Agency, request: Request):
+        return (1 / Entity.distance_between(agency.position, request.position))

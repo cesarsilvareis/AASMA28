@@ -93,9 +93,9 @@ REQUEST_WEIGHT = {
 }
 
 REQUEST_DURATION_ORDER = IndexedOrderedDict({
-    RequestPriority.LOW:    3,
-    RequestPriority.MEDIUM: 5,
-    RequestPriority.HIGH:   3,
+    RequestPriority.LOW:    10,
+    RequestPriority.MEDIUM: 7,
+    RequestPriority.HIGH:   5,
     RequestPriority.INVALID:0,
 })
 

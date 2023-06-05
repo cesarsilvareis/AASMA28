@@ -24,7 +24,7 @@ class GreedyAgent(Agent):
         # find the self agency
         self_agency = None
         for agency in agencies:
-            if agency.is_self:
+            if agency.name == self.name:
                 self_agency = agency
                 break
 
@@ -40,7 +40,7 @@ class GreedyAgent(Agent):
                 # find the agency that is closer to the request
                 closer_agency = self_agency
                 for agency in agencies:
-                    if agency.is_self:
+                    if agency.name == self.name:
                         continue
                     if Entity.distance_between(request.position, agency.position) < Entity.distance_between(request.position, closer_agency.position):
                         closer_agency = agency

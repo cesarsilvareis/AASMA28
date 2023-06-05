@@ -127,6 +127,8 @@ class Ambulance(Entity):
             self.coming_back = True
             self.take(self.OWNER.position)
         
+        if len(self.ongoing_path) == 0:
+            print("DEBUG:", self.position, self.OWNER.position, self.request.position, self.objective)
         next_position = self.ongoing_path.pop(0)
         self.position = next_position
         if self.position == self.objective:
@@ -348,11 +350,7 @@ class AmbulanceERS(Env):
         return self.Observation(
             field=np.copy(self.grid_city),
             actions=self.__get_valid_actions(agent),
-            agencies=[self.AgentObservation(
-                is_self=(agency == agent),
-                position=agency.position,
-                reward=agency.reward, # FIXME: rewards like this??
-            ) for agency in self.agencies],
+            agencies=[agency for agency in self.agencies],
             available_ambulances=len(agent.available_ambulances),
             total_ambulances=len(agent.ambulances),
             current_step=self.current_step,
@@ -366,11 +364,11 @@ class AmbulanceERS(Env):
                     return agency.reward
         
         nobs = { agency.name: self.__make_obs(agency) for agency in self.agencies}
-        nreward = [get_agency_reward(observation=o) for o in nobs.values()]
+        # nreward = [get_agency_reward(observation=o) for o in nobs.values()]
         terminal = self.end
         ninfo = [{"observation": o} for o in nobs]
         
-        return nobs, nreward, terminal, ninfo
+        return nobs, [], terminal, ninfo
 
     def reset(self):
         self.current_step = 0
@@ -426,7 +424,7 @@ class AmbulanceERS(Env):
             
             else:
                 for valid_position in self.__get_available_positions():
-                    if random.random() >= self.OCCUPANCY_MAP[valid_position[0]][valid_position[1]]:
+                    if random.random() >= self.OCCUPANCY_MAP[valid_position[0]][valid_position[1]] * 2:
                         continue
 
                     # generate new request

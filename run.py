@@ -8,7 +8,7 @@ from gym import Env
 from aasma import Agent
 from aasma.utils import compare_results
 from ambulance_emergency_response.environment import AmbulanceERS
-from ambulance_emergency_response.agents import RandomAgent, GreedyAgent, ConventionAgent
+from ambulance_emergency_response.agents import RandomAgent, GreedyAgent, ConventionAgent, RoleAgent
 from ambulance_emergency_response.settings import DEBUG, OCCUPANCY_MAP_1
 
 if DEBUG:
@@ -88,6 +88,7 @@ if __name__ == '__main__':
         "Random Agencies": [RandomAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
         "Greedy Agencies": [GreedyAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
         "Convention Agencies": [ConventionAgent(agency.name, environment.N_AGENTS, convention) for agency in environment.agencies],
+        "Role Agencies": [RoleAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
     }
 
     # 3 - Evaluate agent
@@ -97,14 +98,14 @@ if __name__ == '__main__':
         "Ambulance-availability": {},
     }
     for team, agents in teams.items():
-        result = run_multiple_agents(environment, agents, 10, render=False)
+        result = run_multiple_agents(environment, agents, 50, render=False)
         results["Response-rate"][team] = result["Response-rate"]
         results["Response-time"][team] = result["Response-time"]
         results["Ambulance-availability"][team] = result["Ambulance-availability"]
 
     # 4 - Compare results
     print(results)
-    compare_results(results=results, title="Comparing the performance of all types of teams", metric="Response-rate", colors=["orange", "blue", "green"])
-    compare_results(results=results, title="Comparing the performance of all types of teams", metric="Response-time", colors=["orange", "blue", "green"])
-    compare_results(results=results, title="Comparing the performance of all types of teams", metric="Ambulance-availability", colors=["orange", "blue", "green"])
+    compare_results(results=results, title="Comparing the performance of all types of teams", metric="Response-rate", colors=["orange", "blue", "green", "red"])
+    compare_results(results=results, title="Comparing the performance of all types of teams", metric="Response-time", colors=["orange", "blue", "green", "red"])
+    compare_results(results=results, title="Comparing the performance of all types of teams", metric="Ambulance-availability", colors=["orange", "blue", "green", "red"])
 
