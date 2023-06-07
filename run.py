@@ -28,7 +28,6 @@ def run_multiple_agents(environment: Env, agents: list[Agent], n_episodes: int, 
 
         steps = 0
         terminal = False
-        # Reseting the environment (useful for comparated single consecutives autonomous agents)
         observations = environment.reset()
         while not terminal:
             steps += 1
@@ -94,8 +93,8 @@ if __name__ == '__main__':
         "Random\n Agencies": [RandomAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
         "Weak Greedy\n Agencies": [WeakGreedyAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
         "Strong Greedy\n Agencies": [StrongGreedyAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
-        "Convention\n Agencies": [ConventionAgent(agency.name, environment.N_AGENTS, convention) for agency in environment.agencies],
-        "Role\n Agencies": [RoleAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
+        # "Convention\n Agencies": [ConventionAgent(agency.name, environment.N_AGENTS, convention) for agency in environment.agencies],
+        # "Role\n Agencies": [RoleAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
     }
 
     # 3 - Evaluate agent

@@ -159,7 +159,7 @@ class CityRender(object):
                 batch=batch
             )
             sprite.update(scale=self.block_size / sprite.width)
-            sprite.color=AGENCY_COLORS[env.agencies.index(ambulance.OWNER)]
+            sprite.color=AGENCY_COLORS[env.agencies.index(ambulance.owner)]
             sprite_references.append(sprite)
 
         batch.draw()
@@ -198,11 +198,11 @@ class CityRender(object):
                     create_metric_label(metrics_references, batch, sep, text=".%s: %.3f" %(agent_name, value[agent_name]))
                     for agent in env.agencies:
                         if agent.name == agent_name:
-                            text = "NOOP" if agent.last_action.meaning == ERSAction.NOOP else "ASSIST %s" % str(agent.last_action.request.position)
                             self.__create_label(metrics_references, batch,
-                                                x=x + self.px + (self.world_width - x + self.px) / 2, 
+                                                x=x + (self.world_width - x + self.px) / 3, 
                                                 y=self.world_height - y - ((sep + 1) * METRIC_SEP_SIZE),
-                                                text=text, font_size=METRIC_FONT_SIZE, color=METRIC_TEXT_COLOR)
+                                                text="(%d/%d) <- %s" %(len(agent.available_ambulances), agent.total_ambulances, agent.last_action),
+                                                font_size=METRIC_FONT_SIZE, color=METRIC_TEXT_COLOR)
                             break
                     sep += 1
             else:

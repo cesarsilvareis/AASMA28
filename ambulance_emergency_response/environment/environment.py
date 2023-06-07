@@ -29,9 +29,11 @@ class Message(object):
 
 class Action():
 
-    def __init__(self,  meaning: ERSAction, request: 'Request'=None):
-        self.request = request
+    def __init__(self,  meaning: ERSAction, request: 'Request'=None, ambulance: 'Ambulance'=None):
         self.meaning = meaning
+        self.request = request
+        self.ambulance = ambulance
+
         self.message = None
 
     def attach_message(self, message: Message):
@@ -39,7 +41,15 @@ class Action():
         return self
 
     def __str__(self):
-        return f"{self.meaning} {self.request}" if self.request else f"{self.meaning}"
+        string = str(self.meaning)
+        match self.meaning:
+            case ERSAction.NOOP:
+                string += ""
+            case ERSAction.ASSIST:
+                string += str(self.request)
+            case ERSAction.NOOP:
+                string += str(self.ambulance)
+        return string
     
     def __repr__(self):
         return str(self)
@@ -68,28 +78,38 @@ class Agency(Entity):
     def __init__(self, name: str, position: tuple[int, int], num_ambulances: int):
         super().__init__(name, position)
 
-        self.ambulances = [Ambulance(f"{ENTITY_IDS[ERSEntity.AMBULANCE]}#{name}_{i}", self) for i in range(num_ambulances)]
-        self.available_ambulances = self.ambulances.copy()
-        self.reward = 0
+        self.initial_ambulances = [Ambulance(f"{ENTITY_IDS[ERSEntity.AMBULANCE]}#{name}_{i}", self) for i in range(num_ambulances)]
+        self.available_ambulances = self.initial_ambulances.copy()
+        self.total_ambulances = len(self.initial_ambulances)
+        self.reward = 0 # not used for reactive agents
         self.num_assistances_made = 0
 
         self.last_action = None
     
     def assist(self, request: 'Request') -> 'Ambulance':
-        # pick up ambulance
+        assert request
+
         if len(self.available_ambulances) == 0:
             return None
+
         ambulance = self.available_ambulances.pop(0)
-        ambulance.take(request.position, request)
+        ambulance.take(request)
         return ambulance
+    
+    def grab(self, ambulance: 'Ambulance'):
+        assert ambulance
+        ambulance.set_owner(self)
+        ambulance.take(self)
     
     def retrieve_ambulance(self, ambulance: 'Ambulance'):
         self.available_ambulances.append(ambulance)
+        if len(self.available_ambulances) > self.total_ambulances:
+            self.total_ambulances = len(self.available_ambulances)
 
     def reset(self):
         self.num_assistances_made = 0
-        self.available_ambulances = self.ambulances.copy()
-        for ambulance in self.ambulances:
+        self.available_ambulances = self.initial_ambulances.copy()
+        for ambulance in self.initial_ambulances:
             ambulance.reset()
 
 class Ambulance(Entity):
@@ -97,46 +117,45 @@ class Ambulance(Entity):
     def __init__(self, name: str, owner: Agency):
         super().__init__(name, owner.position)
         
-        self.OWNER = owner  # should not change
+        self.owner = owner
         self.objective = None
         self.operating = False
         self.ongoing_path = None
         self.coming_back = False
         self.request : 'Request' = None
 
-    def take(self, goal, request: 'Request'=None):
+    def set_owner(self, owner: Agency):
+        self.owner = owner
 
-        if request is not None:
-            self.request = request
-
-        self.ongoing_path = self.__find_path_to_request(goal)
+    def take(self, goal: Entity):
+        
+        self.ongoing_path = self.__find_path_to_request(goal.position)
         if self.ongoing_path is not None:
             self.operating = True
             self.objective = goal
+            if self.objective == self.owner:
+                self.coming_back = True
     
     def advance(self) -> bool:
-        if len(self.ongoing_path) == 0:
-            return False
-        if not self.operating:
+
+        if not self.operating or self.ongoing_path == []:
             return False
         
-        if self.request.priority == RequestPriority.INVALID and not self.coming_back:
-            if self.position == self.OWNER.position:
+        if isinstance(self.objective, Request) and self.objective.priority == RequestPriority.INVALID and not self.coming_back:
+            if self.position == self.owner.position:
                 self.operating = False
                 return True
-            self.coming_back = True
-            self.take(self.OWNER.position)
+            self.take(self.owner)
 
         next_position = self.ongoing_path.pop(0)
         self.position = next_position
-        if self.position == self.objective:
-            if self.position == self.OWNER.position:
-                self.operating = False
-                self.coming_back = False
+        if self.position == self.objective.position:
+            if self.position == self.owner.position:
+                self.reset()
                 return True
             else:
-                self.take(self.OWNER.position)
-                self.coming_back = True
+                assert isinstance(self.objective, Request)
+                self.request = self.objective
                 return True
         return False
     
@@ -178,7 +197,7 @@ class Ambulance(Entity):
         self.ongoing_path = None
         self.request = None
         self.coming_back = False
-        self.position = self.OWNER.position
+        self.position = self.owner.position
 
 
 class Request(Entity):
@@ -207,10 +226,10 @@ class Request(Entity):
 
 
     def __str__(self) -> str:
-        return f"{self.name} {self.position} {self.priority}"
+        return f"{self.position} {self.priority}"
     
     def __repr__(self) -> str:
-        return f"{self.name} {self.position} {self.priority}"
+        return str(self)
 
     def __eq__(self, other: 'Request'):
         return self.name == other.name and self.priority == other.priority
@@ -302,7 +321,7 @@ class AmbulanceERS(Env):
         self.num_taken_requests = 0
         self.finalized_requests = 0
         self.total_time_alive_requests = 0
-        self.total_number_ambulances = sum([len(agency.ambulances) for agency in self.agencies])
+        self.total_number_ambulances = sum([len(agency.initial_ambulances) for agency in self.agencies])
 
         self.metrics = {
             "Response-rate": 0.00,
@@ -362,9 +381,17 @@ class AmbulanceERS(Env):
         for request in self.live_requests:
             if request.priority == RequestPriority.INVALID:
                 continue
-            # check if this agency is the closest to the request
+            # agent field of view
             if self.__get_closest_agency(request) == agent:
-                actions.append(Action(ERSAction.ASSIST, request))
+                actions.append(Action(ERSAction.ASSIST, request=request))
+
+        for ambulance in self.active_ambulances:
+            request = ambulance.request
+            if not request or request.priority == RequestPriority.INVALID:
+                continue
+            # agent field of view
+            if self.__get_closest_agency(request) == agent:
+                actions.append(Action(ERSAction.GRAB, ambulance=ambulance))
 
         return actions
     
@@ -377,7 +404,7 @@ class AmbulanceERS(Env):
             actions=self.__get_valid_actions(agent),
             agencies=[agency for agency in self.agencies],
             available_ambulances=len(agent.available_ambulances),
-            total_ambulances=len(agent.ambulances),
+            total_ambulances=len(agent.initial_ambulances),
             current_step=self.current_step,
             messages=self.__get_messages(agent),
         )
@@ -410,7 +437,7 @@ class AmbulanceERS(Env):
         self.num_taken_requests = 0
         self.finalized_requests = 0
         self.total_time_alive_requests = 0
-        self.total_number_ambulances = sum([len(agency.ambulances) for agency in self.agencies])
+        self.total_number_ambulances = sum([len(agency.initial_ambulances) for agency in self.agencies])
 
         self.metrics = {
             "Response-rate": 1.00,
@@ -430,15 +457,21 @@ class AmbulanceERS(Env):
             if action.message is not None:
                 self.message_queue.append(action.message)
             match(action.meaning):
-                case ERSAction.NOOP:
+                case ERSAction.NOOP:    # NOOP()
                     self.logger.info(f"Agency: {agency.name} idle...")
-                case ERSAction.ASSIST:
+                case ERSAction.ASSIST:  # ASSIST(request)
                     request = action.request
+                    assert request.priority != RequestPriority.INVALID
                     self.logger.info(f"Agency: {agency.name} assisting request on position: {request.position}...")
                     ambulance = agency.assist(request)
                     if ambulance is not None:
                         self.active_ambulances.append(ambulance)
-                    # ...
+                case ERSAction.GRAB:    # GRAB(ambulance)
+                    ambulance = action.ambulance
+                    assert ambulance.request.priority != RequestPriority.INVALID
+                    self.logger.info(f"Agency: {agency.name} grabbing ambulance with request on position: {ambulance.position}...")
+                    agency.grab(ambulance)
+
             agency.last_action = action
 
         ##   Dynamic things
@@ -485,14 +518,14 @@ class AmbulanceERS(Env):
             if reached_goal and ambulance.operating and ambulance.request in self.live_requests:
                 self.total_time_alive_requests += ambulance.request.time_alive
                 self.num_taken_requests += 1
-                ambulance.OWNER.num_assistances_made += 1
+                ambulance.owner.num_assistances_made += 1
                 self.live_requests.remove(ambulance.request)
                 self.finalized_requests += 1
                 
             # if reached owner agency
             elif reached_goal and not ambulance.operating:
                 self.active_ambulances.remove(ambulance)
-                ambulance.OWNER.retrieve_ambulance(ambulance)
+                ambulance.owner.retrieve_ambulance(ambulance)
                 self.grid_city[ambulance.position] = ENTITY_IDS[ERSEntity.AGENCY]
 
         # Update requests' timer

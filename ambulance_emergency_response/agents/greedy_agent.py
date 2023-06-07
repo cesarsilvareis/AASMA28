@@ -18,15 +18,34 @@ class WeakGreedyAgent(Agent):
         agencies = observation.agencies
         actions = observation.actions
 
-        if observation.available_ambulances == 0:
-            return Action(ERSAction.NOOP)
-
         # find the self agency
         self_agency = None
         for agency in agencies:
             if agency.name == self.name:
                 self_agency = agency
                 break
+
+        # checks for GRAB actions first prioritizing closer ambulances
+        best_grab_action = None
+        for action in actions:
+            if action.meaning == ERSAction.GRAB:
+                ambulance = action.ambulance
+                if ambulance.coming_back:
+                    continue
+
+                if not best_grab_action:
+                    best_grab_action = action
+                    continue
+
+                if Entity.distance_between(self_agency.position, ambulance.position) < \
+                    Entity.distance_between(self_agency.position, best_grab_action.ambulance.position):
+                    best_grab_action = action
+        
+        if best_grab_action:
+            return best_grab_action
+                    
+        if observation.available_ambulances == 0: # no possible ASSISTs' executions
+            return Action(ERSAction.NOOP)
 
         # get all requests that are closer to the self agency than the others agents
         closer_requests_actions = []
@@ -70,14 +89,11 @@ class StrongGreedyAgent(Agent):
 
     def action(self) -> int:
         """
-        This agent will always try to assist the requests that are closer to it than the others agents.
+        This agent will always try to assist the requests that has higher priority in its region.
         """
         observation = self.observation
         agencies = observation.agencies
         actions = observation.actions
-
-        if observation.available_ambulances == 0:
-            return Action(ERSAction.NOOP)
 
         # find the self agency
         self_agency = None
@@ -85,6 +101,29 @@ class StrongGreedyAgent(Agent):
             if agency.name == self.name:
                 self_agency = agency
                 break
+
+        # checks for GRAB actions first prioritizing closer ambulances
+        best_grab_action = None
+        for action in actions:
+            if action.meaning == ERSAction.GRAB:
+                ambulance = action.ambulance
+                if ambulance.coming_back:
+                    continue
+
+                if not best_grab_action:
+                    best_grab_action = action
+                    continue
+
+                ambulance = action.ambulance
+                if Entity.distance_between(self_agency.position, ambulance.position) < \
+                    Entity.distance_between(self_agency.position, best_grab_action.ambulance.position):
+                    best_grab_action = action
+        
+        if best_grab_action:
+            return best_grab_action
+                    
+        if observation.available_ambulances == 0: # no possible ASSISTs' executions
+            return Action(ERSAction.NOOP)
 
         # get all requests that are closer to the self agency than the others agents
         closer_requests_actions = []
