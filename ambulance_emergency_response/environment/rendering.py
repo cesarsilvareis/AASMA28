@@ -104,26 +104,26 @@ class CityRender(object):
     def __draw_agencies(self, env: AmbulanceERS):
         batch = pyglet.graphics.Batch()
 
-        sprite_references = [] # for drawing batch
+        references = [] # for drawing batch
 
-        for agency in env.agencies:
+        for i, agency in enumerate(env.agencies):
             row, col = agency.position
-            sprite_references.append(pyglet.sprite.Sprite(
+            sprite = pyglet.sprite.Sprite(
                 self.IMAGE_AGENGY,
                 self.px + self.block_size * col,
                 self.py + self.city_size[0] - (self.block_size * (row + 1)),
                 batch=batch
-            ))
-
-        for sprite in sprite_references:
+            )
             sprite.update(scale=self.block_size / sprite.width)
-
-        # TODO information painel containing:
-        #   nr of ambulances available
-        #   nr of actual assistances
-        #   - perhaps metrics on a generic painel
+            sprite.color = AGENCY_COLORS[i]
+            references.append(sprite)
+            self.__create_label(references, batch, 
+                                x=self.px + self.block_size * (col-1),
+                                y=2 * self.py + self.city_size[0] - (self.block_size * (row + 1)),
+                                text=agency.name, color=(255, 255, 255, 255))
 
         batch.draw()
+
 
     def __draw_requests(self, env: AmbulanceERS):
         batch = pyglet.graphics.Batch()
@@ -152,15 +152,15 @@ class CityRender(object):
 
         for ambulance in env.active_ambulances:
             row, col = ambulance.position
-            sprite_references.append(pyglet.sprite.Sprite(
+            sprite = pyglet.sprite.Sprite(
                 self.IMAGE_AMBULANCE,
                 self.px + self.block_size * col,
                 self.py + self.city_size[0] - (self.block_size * (row + 1)),
                 batch=batch
-            ))
-
-        for sprite in sprite_references:
+            )
             sprite.update(scale=self.block_size / sprite.width)
+            sprite.color=AGENCY_COLORS[env.agencies.index(ambulance.OWNER)]
+            sprite_references.append(sprite)
 
         batch.draw()
 
@@ -194,11 +194,18 @@ class CityRender(object):
             if isinstance(value, dict): # measure by agent
                 create_metric_label(metrics_references, batch, sep, text="%s:" %metric)
                 sep += 1
-                for agent in value:
-                    create_metric_label(metrics_references, batch, sep, text=".%s: %.3f" %(agent, value[agent]))
+                for agent_name in value:
+                    create_metric_label(metrics_references, batch, sep, text=".%s: %.3f" %(agent_name, value[agent_name]))
+                    for agent in env.agencies:
+                        if agent.name == agent_name:
+                            text = "NOOP" if agent.last_action.meaning == ERSAction.NOOP else "ASSIST %s" % str(agent.last_action.request.position)
+                            self.__create_label(metrics_references, batch,
+                                                x=x + self.px + (self.world_width - x + self.px) / 2, 
+                                                y=self.world_height - y - ((sep + 1) * METRIC_SEP_SIZE),
+                                                text=text, font_size=METRIC_FONT_SIZE, color=METRIC_TEXT_COLOR)
+                            break
                     sep += 1
             else:
-                print(metric,value)
                 create_metric_label(metrics_references, batch, sep, text="%s: %.3f" %(metric, value))
                 sep += 1
             

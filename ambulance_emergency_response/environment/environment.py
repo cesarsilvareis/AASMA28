@@ -71,8 +71,9 @@ class Agency(Entity):
         self.ambulances = [Ambulance(f"{ENTITY_IDS[ERSEntity.AMBULANCE]}#{name}_{i}", self) for i in range(num_ambulances)]
         self.available_ambulances = self.ambulances.copy()
         self.reward = 0
-
         self.num_assistances_made = 0
+
+        self.last_action = None
     
     def assist(self, request: 'Request') -> 'Ambulance':
         # pick up ambulance
@@ -241,7 +242,9 @@ class AmbulanceERS(Env):
                  request_max_generation_steps: int = 100,
                  penalty: float = 0.0,
                  sight: float = 1.0, # [0.0, 1.0]
-                 show_density_map: bool=False
+                 show_density_map: bool=False,
+                 save_density_filename: str | None=None,
+                 stressfulness=1,
         ):
 
         self.N_AGENTS = num_agents
@@ -266,7 +269,7 @@ class AmbulanceERS(Env):
             self.OCCUPANCY_MAP = occupancy_map
         
         if show_density_map:
-            self.__plot_occupancy_map()
+            self.__plot_occupancy_map(filename=save_density_filename)
         
 
         self.agencies : list[Agency] = []
@@ -279,6 +282,7 @@ class AmbulanceERS(Env):
         self.penalty = penalty
 
         self.request_max_generation_steps = request_max_generation_steps
+        self.stressfulness = stressfulness
         
         self.live_requests : list[Request] = []
         self.num_spawned_requests = 0
@@ -315,18 +319,21 @@ class AmbulanceERS(Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
        
-    def __plot_occupancy_map(self):
+    def __plot_occupancy_map(self, filename=None):
         from matplotlib import pyplot as plt, cm, colors
         plt.figure(figsize=tuple(np.array(self.OCCUPANCY_MAP.shape) // 2))
 
         color_list = ['green', 'yellow', 'red']
         cmap = colors.LinearSegmentedColormap.from_list('custom_cmap', colors=color_list)
 
-        plt.title('Gradient map')
+        plt.title('Request Generation Distribution')
         plt.imshow(self.OCCUPANCY_MAP, origin='upper', interpolation="none", cmap=cmap)
-        plt.xticks(np.arange(self.OCCUPANCY_MAP.shape[0]), np.arange(self.OCCUPANCY_MAP.shape[0]))  # need to set the ticks manually
-        plt.yticks(np.arange(self.OCCUPANCY_MAP.shape[1]), np.arange(self.OCCUPANCY_MAP.shape[1] - 1, -1, -1))
-        plt.colorbar(label="Request spawn frequency")
+        plt.xticks(np.arange(self.OCCUPANCY_MAP.shape[0]), np.arange(self.OCCUPANCY_MAP.shape[0]))
+        plt.yticks(np.arange(self.OCCUPANCY_MAP.shape[1]), np.arange(self.OCCUPANCY_MAP.shape[0]))
+        plt.colorbar(label="Request spawn frequency", fraction=0.046, pad=0.04)
+        plt.tight_layout()
+        if filename is not None:
+            plt.savefig(filename)
         plt.show()
 
 
@@ -432,6 +439,7 @@ class AmbulanceERS(Env):
                     if ambulance is not None:
                         self.active_ambulances.append(ambulance)
                     # ...
+            agency.last_action = action
 
         ##   Dynamic things
 
@@ -443,7 +451,8 @@ class AmbulanceERS(Env):
             
             else:
                 for valid_position in self.__get_available_positions():
-                    if random.random() >= self.OCCUPANCY_MAP[valid_position[0]][valid_position[1]] * 2:
+
+                    if random.random() >= self.OCCUPANCY_MAP[valid_position[0]][valid_position[1]] * self.stressfulness:
                         continue
 
                     # generate new request
@@ -454,6 +463,7 @@ class AmbulanceERS(Env):
                     )
                     self.live_requests.append(request)
                     self.num_spawned_requests += 1
+
                     self.grid_city[request.position] = ENTITY_IDS[ERSEntity.REQUEST]
             
         # Checks invalid requests firstly
@@ -468,7 +478,8 @@ class AmbulanceERS(Env):
             if (self.grid_city[ambulance.position] == ENTITY_IDS[ERSEntity.AMBULANCE]):
                 self.grid_city[ambulance.position] = ENTITY_IDS[ERSEntity.NONE]
             reached_goal = ambulance.advance()
-            self.grid_city[ambulance.position] = ENTITY_IDS[ERSEntity.AMBULANCE]
+            if self.grid_city[ambulance.position] != ENTITY_IDS[ERSEntity.AGENCY]:
+                self.grid_city[ambulance.position] = ENTITY_IDS[ERSEntity.AMBULANCE]
 
             # if reached patient request
             if reached_goal and ambulance.operating and ambulance.request in self.live_requests:

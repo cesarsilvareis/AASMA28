@@ -6,7 +6,6 @@ from ambulance_emergency_response.settings import ERSAction, REQUEST_WEIGHT
 
 class RoleAgent(Agent):
 
-    # social convention is a list of angeny names
     def __init__(self, agency_name, n_agents):
         super(RoleAgent, self).__init__(agency_name)
         self.requests_taken = []
@@ -14,7 +13,7 @@ class RoleAgent(Agent):
 
     def action(self) -> int:
         """
-        This agent will always try to assist the requests that were sent by other agents, according to the social convention.
+        This agent will always try to assist the requests that were sent by other agents, according to the role that is assigned to him.
         """
         observation = self.observation
         agencies = observation.agencies
@@ -35,7 +34,7 @@ class RoleAgent(Agent):
         for message in messages:
             if Entity.distance_between(self_agency.position, message.request.position) >= message.request.elapse_time:
                 continue
-            if message.request not in self.requests_taken and self.__has_better_potential(observation, message.request):
+            if message.request not in self.requests_taken and self.__has_better_potential(observation, message):
                 next_agency_requests.append(message.request)
 
         # get all requests that are closer to the self agency than the others agents
@@ -85,7 +84,9 @@ class RoleAgent(Agent):
     
 
 
-    def __has_better_potential(self, observation, request):
+    def __has_better_potential(self, observation, message: Message):
+        request = message.request
+
         self_potential = None
         for agency in observation.agencies:
             if agency.name == self.name:
@@ -93,13 +94,15 @@ class RoleAgent(Agent):
                 break
 
         for agency in observation.agencies:
-            if agency.name == self.name:
+            if agency.name == self.name or agency.name == message.sender:
                 continue
             if self_potential < self.__potencial(agency, request):
+                return False
+            if self_potential == self.__potencial(agency, request) and self.name < agency.name:
                 return False
             
         return True
     
     @staticmethod
     def __potencial(agency: Agency, request: Request):
-        return (1 / Entity.distance_between(agency.position, request.position))
+        return (1 / Entity.distance_between(agency.position, request.position)) # FIXME

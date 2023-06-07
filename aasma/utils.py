@@ -96,13 +96,14 @@ def plot_confidence_bar(names, means, std_devs, N, title, x_label, y_label, conf
 
     errors = [standard_error(std_devs[i], N[i], confidence) for i in range(len(means))]
     fig, ax = plt.subplots()
+    # plt.rcParams.update({'figure.figsize':(3*len(names), 4), 'font.size': 22, 'font.weight' : 'bold'})
     x_pos = np.arange(len(names))
     ax.bar(x_pos, means, yerr=errors, align='center', alpha=0.5, color=colors if colors is not None else "gray", ecolor='black', capsize=10)
-    ax.set_ylabel(y_label)
-    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label, fontdict={ 'size': 13, 'weight' : 'bold' })
     ax.set_xticks(x_pos)
     ax.set_xticklabels(names)
     ax.set_title(title)
+    ax.set_xlabel(x_label, fontdict={ 'size': 13, 'weight' : 'bold' })
     ax.yaxis.grid(True)
     if yscale is not None:
         plt.yscale(yscale)
@@ -165,7 +166,7 @@ def compare_results(results, confidence=0.95, title="Agents Comparison", metric=
 
         # create a dataframe
         df = pd.DataFrame(agents_data, index=teams)
-        ax = df.plot.bar(rot=0, figsize=(12, 5), title=title)
+        ax = df.plot.bar(rot=0, figsize=(1.25 * len(teams), 4), title=title)
         ax.set_xlabel("")
         ax.set_ylabel(f"Avg. {metric}")
         plt.tight_layout()
