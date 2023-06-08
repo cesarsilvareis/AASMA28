@@ -74,6 +74,26 @@ class ConventionAgent(Agent):
             message = Message(closer_requests_actions[-1].request, self.name)
             self.requests_sent.append(closer_requests_actions[-1].request)
 
+        # checks for GRAB actions first prioritizing closer ambulances
+        best_grab_action = None
+        for action in actions:
+            if action.meaning == ERSAction.GRAB:
+                ambulance = action.ambulance
+                if ambulance.coming_back:
+                    continue
+
+                if not best_grab_action:
+                    best_grab_action = action
+                    continue
+
+                ambulance = action.ambulance
+                if Entity.distance_between(self_agency.position, ambulance.position) < \
+                    Entity.distance_between(self_agency.position, best_grab_action.ambulance.position):
+                    best_grab_action = action
+        
+        if best_grab_action:
+            return best_grab_action
+
         if observation.available_ambulances == 0:
             return Action(ERSAction.NOOP).attach_message(message)
 

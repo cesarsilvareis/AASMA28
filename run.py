@@ -77,7 +77,7 @@ if __name__ == '__main__':
         agent_coords=[(220, 40), (40, 220), (220, 440), (440, 220)],
         agent_num_ambulances=[1, 2, 2, 2],
         request_max_generation_steps=50,
-        occupancy_map=OCCUPANCY_MAP_2,
+        occupancy_map=OCCUPANCY_MAP_4,
         show_density_map=opt.show_results,
         save_density_filename=EXPERIMENT_FOLDER + "density_map.png" if opt.save_results else None,
         stressfulness=2
@@ -93,8 +93,8 @@ if __name__ == '__main__':
         "Random\n Agencies": [RandomAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
         "Weak Greedy\n Agencies": [WeakGreedyAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
         "Strong Greedy\n Agencies": [StrongGreedyAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
-        # "Convention\n Agencies": [ConventionAgent(agency.name, environment.N_AGENTS, convention) for agency in environment.agencies],
-        # "Role\n Agencies": [RoleAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
+        "Convention\n Agencies": [ConventionAgent(agency.name, environment.N_AGENTS, convention) for agency in environment.agencies],
+        "Role\n Agencies": [RoleAgent(agency.name, environment.N_AGENTS) for agency in environment.agencies],
     }
 
     # 3 - Evaluate agent
