@@ -47,7 +47,7 @@ class Action():
                 string += ""
             case ERSAction.ASSIST:
                 string += str(self.request)
-            case ERSAction.NOOP:
+            case ERSAction.GRAB:
                 string += str(self.ambulance)
         return string
     
@@ -67,7 +67,8 @@ class Entity(object):
     
     @staticmethod
     def distance_between(position1: tuple[int, int], position2: tuple[int, int]):
-        return np.linalg.norm(np.array(position1) - np.array(position2))
+        # return np.linalg.norm(np.array(position1) - np.array(position2)) Should be manhattan distance
+        return abs(position1[0] - position2[0]) + abs(position1[1] - position2[1])
     
     @staticmethod
     def in_world(position: tuple[int, int]):
@@ -198,6 +199,12 @@ class Ambulance(Entity):
         self.request = None
         self.coming_back = False
         self.position = self.owner.position
+
+    def __str__(self) -> str:
+        return f"{self.request}"
+    
+    def __repr__(self) -> str:
+        return str(self)
 
 
 class Request(Entity):
@@ -475,29 +482,6 @@ class AmbulanceERS(Env):
             agency.last_action = action
 
         ##   Dynamic things
-
-        # Request generation
-        if not self.finishing_phase:
-            if self.num_spawned_requests >= self.request_max_generation_steps:
-                self.finishing_phase = True
-                self.logger.info("Finishing phase...")
-            
-            else:
-                for valid_position in self.__get_available_positions():
-
-                    if random.random() >= self.OCCUPANCY_MAP[valid_position[0]][valid_position[1]] * self.stressfulness:
-                        continue
-
-                    # generate new request
-                    request = Request(
-                        f"{ENTITY_IDS[ERSEntity.REQUEST]}_{self.current_step}_{valid_position}",
-                        valid_position,
-                        random.choices(*zip(*REQUEST_WEIGHT.items()))[0]
-                    )
-                    self.live_requests.append(request)
-                    self.num_spawned_requests += 1
-
-                    self.grid_city[request.position] = ENTITY_IDS[ERSEntity.REQUEST]
             
         # Checks invalid requests firstly
         for request in self.live_requests:
@@ -531,6 +515,29 @@ class AmbulanceERS(Env):
         # Update requests' timer
         for request in self.live_requests:
             request.time_step()
+
+        # Request generation
+        if not self.finishing_phase:
+            if self.num_spawned_requests >= self.request_max_generation_steps:
+                self.finishing_phase = True
+                self.logger.info("Finishing phase...")
+            
+            else:
+                for valid_position in self.__get_available_positions():
+
+                    if random.random() >= self.OCCUPANCY_MAP[valid_position[0]][valid_position[1]] * self.stressfulness:
+                        continue
+
+                    # generate new request
+                    request = Request(
+                        f"{ENTITY_IDS[ERSEntity.REQUEST]}_{self.current_step}_{valid_position}",
+                        valid_position,
+                        random.choices(*zip(*REQUEST_WEIGHT.items()))[0]
+                    )
+                    self.live_requests.append(request)
+                    self.num_spawned_requests += 1
+
+                    self.grid_city[request.position] = ENTITY_IDS[ERSEntity.REQUEST]
 
         for agency in self.agencies:
             self.total_number_ambulances += len(agency.available_ambulances)

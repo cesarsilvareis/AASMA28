@@ -118,9 +118,9 @@ class CityRender(object):
             sprite.color = AGENCY_COLORS[i]
             references.append(sprite)
             self.__create_label(references, batch, 
-                                x=self.px + self.block_size * (col-1),
-                                y=2 * self.py + self.city_size[0] - (self.block_size * (row + 1)),
-                                text=agency.name, color=(255, 255, 255, 255))
+                                x=self.px + self.block_size * (col),
+                                y=1.5*self.py + self.city_size[0] - (self.block_size * (row)),
+                                text=agency.name, color=(255, 255, 255, 255), bold=True, anchor_x='center')
 
         batch.draw()
 
