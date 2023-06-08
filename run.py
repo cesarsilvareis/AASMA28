@@ -9,7 +9,7 @@ from aasma import Agent
 from aasma.utils import compare_results, print_results
 from ambulance_emergency_response.environment import AmbulanceERS
 from ambulance_emergency_response.agents import RandomAgent, WeakGreedyAgent, StrongGreedyAgent, ConventionAgent, RoleAgent
-from ambulance_emergency_response.settings import DEBUG, SEED, EXPERIMENT_FOLDER, OCCUPANCY_MAP_1, OCCUPANCY_MAP_2, OCCUPANCY_MAP_3, OCCUPANCY_MAP_4
+from ambulance_emergency_response.settings import DEBUG, SEED, EXPERIMENT_FOLDER, OCCUPANCY_MAPS
 
 if DEBUG:
     logging.basicConfig(level=logging.INFO,
@@ -66,9 +66,12 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--episodes", type=int, default=20)
-    parser.add_argument("--rendering", action=argparse.BooleanOptionalAction)
-    parser.add_argument("--show-results", action=argparse.BooleanOptionalAction)
-    parser.add_argument("--save-results", action=argparse.BooleanOptionalAction)
+    parser.add_argument("--rendering", default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--show-results", default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--save-results", default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--max-generation-steps", type=int, default=50)
+    parser.add_argument("--occupancy-map", type=int, default=1)
+    parser.add_argument("--stressfulness", type=int, default=1)
     opt = parser.parse_args()
 
     # 1 - Setup environment
@@ -77,11 +80,11 @@ if __name__ == '__main__':
         num_agents=4,
         agent_coords=[(220, 40), (40, 220), (220, 440), (440, 220)],
         agent_num_ambulances=[1, 2, 2, 2],
-        request_max_generation_steps=50,
-        occupancy_map=OCCUPANCY_MAP_4,
+        request_max_generation_steps=opt.max_generation_steps,
+        occupancy_map=OCCUPANCY_MAPS[opt.occupancy_map],
         show_density_map=opt.show_results,
         save_density_filename=EXPERIMENT_FOLDER + "density_map.png" if opt.save_results else None,
-        stressfulness=2
+        stressfulness=opt.stressfulness,
     )
 
     # sets seed

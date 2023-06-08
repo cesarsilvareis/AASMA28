@@ -167,6 +167,7 @@ def compare_results(results, confidence=0.95, title="Agents Comparison", metric=
         # create a dataframe
         df = pd.DataFrame(agents_data, index=teams)
         ax = df.plot.bar(rot=0, figsize=(1.25 * len(teams), 4), title=title)
+        ax.legend(ncol=len(agents))
         ax.set_xlabel("")
         ax.set_ylabel(f"Avg. {metric}")
         plt.tight_layout()
