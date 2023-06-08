@@ -34,7 +34,7 @@ class WeakGreedyAgent(Agent):
             if action.meaning == ERSAction.ASSIST:
                 request = action.request
 
-                if Entity.distance_between(self_agency.position, request.position) >= request.elapse_time:
+                if Entity.distance_between(self_agency.position, request.position) > request.elapse_time:
                     continue
                 
                 # find the agency that is closer to the request
@@ -92,7 +92,7 @@ class StrongGreedyAgent(Agent):
             if action.meaning == ERSAction.ASSIST:
                 request = action.request
 
-                if Entity.distance_between(self_agency.position, request.position) >= request.elapse_time:
+                if Entity.distance_between(self_agency.position, request.position) > request.elapse_time:
                     continue
                 
                 # find the agency that is closer to the request
