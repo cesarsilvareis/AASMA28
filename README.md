@@ -6,13 +6,20 @@ Autonomous Agents and Multi-Agent Systems 2022/23
 
 * **César Reis** - *96849* - [cesarsilvareis](https://github.com/cesarsilvareis)
 * **Henrique Vinagre** - *96869* - [Henrique Vinagre](https://github.com/henriquevinagre)
-* **Yhya Dabah** - *96895* - [Henrique Vinagre](https://github.com/yhya96895)
+* **Yhya Dabah** - *96895* - [yhya96895](https://github.com/yhya96895)
 
 ___
 
 ## 📦 | Installation details:
 The project was created in Python 3.10 and requires the installation of several libraries. To install the required dependencies, follow the steps below:
-- We suggest you create a Python virtual environment using Python 3.10 or higher.
+- We suggest you create a Python virtual environment using Python 3.10 or higher:
+    ```
+    python3 -m venv aasma-venv
+    ```
+- Activate and go to the ```aasma-venv``` virtual environment by simply running:
+    ```
+    source aasma-venv/bin/activate
+    ```
 - Install with pip command all the library packages present in the ```requirements.txt``` file:
     ```
     pip install -r requirements.txt
@@ -33,7 +40,7 @@ If you want a custom execution, altering some default options, take a look at th
 python3 run.py --help
 ```
 
-Keep in mind that the rendering option may take a while to finish and show the results of that execution.
+Keep in mind that with the rendering option the system may take a while to finish and show the results of that execution.
 For example, you may only want to see fast the results of each team without saving them:
 ```
 python3 run.py --episodes 100 --no-rendering --show-results --no-save-results --max-generation-steps 50 --occupancy-map 4 --stressfulness 2
